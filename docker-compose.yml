@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: max-quiz-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: maxquiz
+    networks:
+      - max-quiz-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: max-quiz-backend
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      MONGO_URI: mongodb://mongo:27017/maxquiz
+    depends_on:
+      - mongo
+    networks:
+      - max-quiz-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: max-quiz-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    depends_on:
+      - backend
+    networks:
+      - max-quiz-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+networks:
+  max-quiz-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+
