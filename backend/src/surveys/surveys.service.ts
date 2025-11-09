@@ -75,6 +75,7 @@ export class SurveysService {
         isClosed: survey.isClosed,
         expiresAt: survey.expiresAt,
         isExpired,
+        questionsCount: survey.questions?.length || 0,
       };
     });
   }

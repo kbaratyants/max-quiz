@@ -36,6 +36,18 @@ export interface Survey {
   isClosed?: boolean;
 }
 
+export interface MySurvey {
+  _id: string;
+  title: string;
+  createdAt: string;
+  publicId: string;
+  shareUrl: string;
+  isClosed: boolean;
+  expiresAt?: string;
+  isExpired?: boolean;
+  questionsCount: number;
+}
+
 export interface SurveyStats {
   survey: {
     _id: string;

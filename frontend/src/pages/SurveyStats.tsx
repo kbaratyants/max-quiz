@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { api, Survey, SurveyStats as SurveyStatsType } from '../api';
+import { api, MySurvey, SurveyStats as SurveyStatsType } from '../api';
 
 export default function SurveyStats() {
   const navigate = useNavigate();
-  const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [surveys, setSurveys] = useState<MySurvey[]>([]);
   const [selectedSurvey, setSelectedSurvey] = useState<SurveyStatsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingStats, setLoadingStats] = useState(false);
@@ -139,7 +139,7 @@ export default function SurveyStats() {
             <div key={survey._id} className="card">
               <h3>{survey.title}</h3>
               <p style={{ color: '#666', marginTop: '5px' }}>
-                Вопросов: {survey.questions.length} • Создан: {new Date(survey.createdAt).toLocaleString('ru-RU')}
+                Вопросов: {survey.questionsCount} • Создан: {new Date(survey.createdAt).toLocaleString('ru-RU')}
               </p>
               <button
                 onClick={() => loadStats(survey._id)}
