@@ -1,10 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../api';
 
 interface Question {
   text: string;
   options: string[];
+}
+
+interface CreatedSurvey {
+  surveyId: string;
+  publicId: string;
+  shareUrl: string;
+  qrData: string;
+  isClosed: boolean;
 }
 
 export default function CreateSurvey() {
@@ -13,7 +22,10 @@ export default function CreateSurvey() {
   const [questions, setQuestions] = useState<Question[]>([
     { text: '', options: ['', ''] },
   ]);
+  const [expiresInHours, setExpiresInHours] = useState<number | ''>('');
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | ''>('');
   const [loading, setLoading] = useState(false);
+  const [createdSurvey, setCreatedSurvey] = useState<CreatedSurvey | null>(null);
 
   const addQuestion = () => {
     setQuestions([...questions, { text: '', options: ['', ''] }]);
@@ -47,6 +59,11 @@ export default function CreateSurvey() {
     setQuestions(updated);
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert('Ссылка скопирована в буфер обмена!');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -74,15 +91,25 @@ export default function CreateSurvey() {
 
     setLoading(true);
     try {
-      await api.post('/surveys', {
+      const expiresAt = expiresInHours 
+        ? new Date(Date.now() + Number(expiresInHours) * 60 * 60 * 1000).toISOString()
+        : undefined;
+      
+      const timeLimitSec = timeLimitMinutes 
+        ? Number(timeLimitMinutes) * 60
+        : undefined;
+
+      const response = await api.post('/surveys', {
         title,
         questions: questions.map(q => ({
           text: q.text,
           options: q.options,
         })),
+        expiresAt,
+        timeLimitSec,
       });
-      alert('Опрос успешно создан!');
-      navigate('/');
+      
+      setCreatedSurvey(response.data);
     } catch (error) {
       console.error('Ошибка создания опроса:', error);
       alert('Не удалось создать опрос');
@@ -90,6 +117,61 @@ export default function CreateSurvey() {
       setLoading(false);
     }
   };
+
+  if (createdSurvey) {
+    return (
+      <div className="container">
+        <div className="card" style={{ textAlign: 'center' }}>
+          <h2>Опрос успешно создан! 🎉</h2>
+          
+          <div style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+            <div>
+              <h3>Ссылка для прохождения:</h3>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', marginTop: '10px' }}>
+                <input
+                  type="text"
+                  value={createdSurvey.shareUrl}
+                  readOnly
+                  style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '4px', minWidth: '300px' }}
+                />
+                <button
+                  onClick={() => copyToClipboard(createdSurvey.shareUrl)}
+                  className="btn btn-primary"
+                >
+                  Копировать
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3>QR-код:</h3>
+              <div style={{ padding: '20px', background: 'white', borderRadius: '8px', display: 'inline-block' }}>
+                <QRCodeSVG value={createdSurvey.qrData} size={200} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button onClick={() => navigate('/my-surveys')} className="btn btn-primary">
+                Мои опросы
+              </button>
+              <button onClick={() => {
+                setCreatedSurvey(null);
+                setTitle('');
+                setQuestions([{ text: '', options: ['', ''] }]);
+                setExpiresInHours('');
+                setTimeLimitMinutes('');
+              }} className="btn btn-secondary">
+                Создать ещё
+              </button>
+              <button onClick={() => navigate('/')} className="btn btn-secondary">
+                На главную
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
@@ -105,6 +187,30 @@ export default function CreateSurvey() {
               placeholder="Например: Опрос по программированию"
               required
             />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px' }}>
+            <div className="form-group">
+              <label>Время жизни опроса (в часах, опционально)</label>
+              <input
+                type="number"
+                value={expiresInHours}
+                onChange={(e) => setExpiresInHours(e.target.value ? Number(e.target.value) : '')}
+                placeholder="Например: 24"
+                min="1"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Таймер на прохождение (в минутах, опционально)</label>
+              <input
+                type="number"
+                value={timeLimitMinutes}
+                onChange={(e) => setTimeLimitMinutes(e.target.value ? Number(e.target.value) : '')}
+                placeholder="Например: 5"
+                min="1"
+              />
+            </div>
           </div>
         </div>
 

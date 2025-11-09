@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsArray, ValidateNested, IsOptional, IsNumber, IsDateString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class QuestionDto {
@@ -23,4 +23,15 @@ export class CreateSurveyDto {
   @ValidateNested({ each: true })
   @Type(() => QuestionDto)
   questions: QuestionDto[];
+
+  @ApiProperty({ example: '2024-12-31T23:59:59.000Z', description: 'Время истечения опроса (ISO строка)', required: false })
+  @IsOptional()
+  @IsDateString()
+  expiresAt?: string;
+
+  @ApiProperty({ example: 300, description: 'Таймер на прохождение в секундах', required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  timeLimitSec?: number;
 }

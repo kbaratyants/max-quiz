@@ -11,6 +11,12 @@ export default function Home() {
           <p style={{ color: '#666', marginTop: '10px' }}>Создать новый опрос с вопросами и вариантами ответов</p>
         </Link>
 
+        <Link to="/my-surveys" className="card" style={{ textDecoration: 'none', color: 'inherit', textAlign: 'center', padding: '40px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📝</div>
+          <h3>Мои созданные опросы</h3>
+          <p style={{ color: '#666', marginTop: '10px' }}>Посмотреть список опросов, которые вы создали</p>
+        </Link>
+
         <Link to="/my-responses" className="card" style={{ textDecoration: 'none', color: 'inherit', textAlign: 'center', padding: '40px' }}>
           <div style={{ fontSize: '48px', marginBottom: '15px' }}>📋</div>
           <h3>Мои пройденные опросы</h3>

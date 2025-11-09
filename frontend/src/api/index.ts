@@ -30,6 +30,10 @@ export interface Survey {
     options: string[];
   }[];
   createdAt: string;
+  publicId?: string;
+  expiresAt?: string;
+  timeLimitSec?: number;
+  isClosed?: boolean;
 }
 
 export interface SurveyStats {

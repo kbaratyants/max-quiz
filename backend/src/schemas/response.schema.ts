@@ -13,6 +13,9 @@ export class Response {
 
   @Prop({ required: true })
   clientId: string;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const ResponseSchema = SchemaFactory.createForClass(Response);

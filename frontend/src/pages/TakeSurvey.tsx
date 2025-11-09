@@ -1,46 +1,138 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api, Survey } from '../api';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { api } from '../api';
+
+interface Survey {
+  _id: string;
+  title: string;
+  questions: {
+    text: string;
+    options: string[];
+  }[];
+  timeLimitSec?: number;
+}
 
 export default function TakeSurvey() {
   const navigate = useNavigate();
-  const [surveyId, setSurveyId] = useState('');
+  const { publicId: paramPublicId } = useParams<{ publicId?: string }>();
+  const [publicId, setPublicId] = useState(paramPublicId || '');
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [isTimeUp, setIsTimeUp] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadSurvey = async () => {
-    if (!surveyId.trim()) {
-      alert('Введите ID опроса');
-      return;
+  useEffect(() => {
+    if (paramPublicId) {
+      loadSurveyByPublicId(paramPublicId);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [paramPublicId]);
+
+  useEffect(() => {
+    if (timeLeft !== null && timeLeft > 0 && !isTimeUp) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev === null || prev <= 1) {
+            setIsTimeUp(true);
+            if (timerRef.current) clearInterval(timerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (timeLeft === 0 && !isTimeUp) {
+      setIsTimeUp(true);
+      handleAutoSubmit();
     }
 
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [timeLeft, isTimeUp]);
+
+  const loadSurveyByPublicId = async (id: string) => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await api.get(`/surveys/${surveyId}`);
+      const response = await api.get(`/surveys/by-public/${id}`);
       setSurvey(response.data);
       setAnswers(new Array(response.data.questions.length).fill(-1));
+      
+      if (response.data.timeLimitSec) {
+        setTimeLeft(response.data.timeLimitSec);
+        setIsTimeUp(false);
+      }
     } catch (error: any) {
       console.error('Ошибка загрузки опроса:', error);
       if (error.response?.status === 404) {
-        alert('Опрос не найден');
+        setError('Опрос не найден');
+      } else if (error.response?.status === 410) {
+        setError(error.response?.data?.message || 'Опрос закрыт или срок его действия истёк');
       } else {
-        alert('Не удалось загрузить опрос');
+        setError('Не удалось загрузить опрос');
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const loadSurvey = async () => {
+    if (!publicId.trim()) {
+      alert('Введите ID опроса');
+      return;
+    }
+    await loadSurveyByPublicId(publicId);
+  };
+
   const handleAnswer = (questionIndex: number, optionIndex: number) => {
+    if (isTimeUp) return;
     const newAnswers = [...answers];
     newAnswers[questionIndex] = optionIndex;
     setAnswers(newAnswers);
   };
 
+  const handleAutoSubmit = async () => {
+    if (isTimeUp || submitting || !survey) return;
+    
+    // Отправляем то, что уже заполнено
+    const filledAnswers = answers.map((a, idx) => a === -1 ? 0 : a);
+    
+    setSubmitting(true);
+    try {
+      const response = await api.post(`/surveys/${survey._id}/responses`, { answers: filledAnswers });
+      setSubmitted(true);
+      if (response.data.clientId) {
+        localStorage.setItem('max-quiz-client-id', response.data.clientId);
+      }
+    } catch (error: any) {
+      console.error('Ошибка отправки ответов:', error);
+      if (error.response?.status === 410) {
+        setError('Опрос закрыт или срок его действия истёк');
+      } else {
+        alert('Не удалось отправить ответы');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async () => {
+    if (isTimeUp) {
+      handleAutoSubmit();
+      return;
+    }
+
     if (answers.some(a => a === -1)) {
       alert('Ответьте на все вопросы');
       return;
@@ -48,18 +140,27 @@ export default function TakeSurvey() {
 
     setSubmitting(true);
     try {
-      const response = await api.post(`/surveys/${surveyId}/responses`, { answers });
+      const response = await api.post(`/surveys/${survey._id}/responses`, { answers });
       setSubmitted(true);
-      // Сохраняем clientId если он был сгенерирован
       if (response.data.clientId) {
         localStorage.setItem('max-quiz-client-id', response.data.clientId);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка отправки ответов:', error);
-      alert('Не удалось отправить ответы');
+      if (error.response?.status === 410) {
+        setError('Опрос закрыт или срок его действия истёк');
+      } else {
+        alert('Не удалось отправить ответы');
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (submitted) {
@@ -71,11 +172,37 @@ export default function TakeSurvey() {
           <div style={{ marginTop: '30px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
             <button onClick={() => {
               setSurvey(null);
-              setSurveyId('');
+              setPublicId('');
               setAnswers([]);
               setSubmitted(false);
+              setError(null);
+              setTimeLeft(null);
+              setIsTimeUp(false);
             }} className="btn btn-primary">
               Пройти другой опрос
+            </button>
+            <button onClick={() => navigate('/')} className="btn btn-secondary">
+              На главную
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container">
+        <div className="card" style={{ textAlign: 'center' }}>
+          <h2 style={{ color: '#dc3545' }}>Ошибка</h2>
+          <p style={{ marginTop: '20px' }}>{error}</p>
+          <div style={{ marginTop: '30px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button onClick={() => {
+              setError(null);
+              setPublicId('');
+              setSurvey(null);
+            }} className="btn btn-primary">
+              Попробовать снова
             </button>
             <button onClick={() => navigate('/')} className="btn btn-secondary">
               На главную
@@ -92,11 +219,11 @@ export default function TakeSurvey() {
         <h2>Пройти опрос по ID</h2>
         <div className="card">
           <div className="form-group">
-            <label>ID опроса</label>
+            <label>ID опроса (publicId)</label>
             <input
               type="text"
-              value={surveyId}
-              onChange={(e) => setSurveyId(e.target.value)}
+              value={publicId}
+              onChange={(e) => setPublicId(e.target.value)}
               placeholder="Введите ID опроса"
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
@@ -120,10 +247,34 @@ export default function TakeSurvey() {
 
   return (
     <div className="container">
-      <h2>{survey.title}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2>{survey.title}</h2>
+        {timeLeft !== null && (
+          <div style={{
+            padding: '10px 20px',
+            borderRadius: '8px',
+            backgroundColor: isTimeUp ? '#dc3545' : timeLeft < 60 ? '#ffc107' : '#28a745',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '18px',
+            minWidth: '80px',
+            textAlign: 'center'
+          }}>
+            {isTimeUp ? 'Время вышло!' : formatTime(timeLeft)}
+          </div>
+        )}
+      </div>
+
+      {isTimeUp && (
+        <div className="card" style={{ backgroundColor: '#fff3cd', borderColor: '#ffc107', marginBottom: '20px' }}>
+          <p style={{ margin: 0, fontWeight: 'bold' }}>
+            Время истекло! Форма заблокирована. Отправляются уже заполненные ответы...
+          </p>
+        </div>
+      )}
 
       {survey.questions.map((question, qIndex) => (
-        <div key={qIndex} className="card">
+        <div key={qIndex} className="card" style={{ opacity: isTimeUp ? 0.6 : 1 }}>
           <h3>
             Вопрос {qIndex + 1}: {question.text}
           </h3>
@@ -132,12 +283,14 @@ export default function TakeSurvey() {
               <label
                 key={oIndex}
                 className={`radio-option ${answers[qIndex] === oIndex ? 'selected' : ''}`}
+                style={{ pointerEvents: isTimeUp ? 'none' : 'auto' }}
               >
                 <input
                   type="radio"
                   name={`question-${qIndex}`}
                   checked={answers[qIndex] === oIndex}
                   onChange={() => handleAnswer(qIndex, oIndex)}
+                  disabled={isTimeUp}
                 />
                 <span>{option}</span>
               </label>
@@ -150,15 +303,21 @@ export default function TakeSurvey() {
         <button
           onClick={handleSubmit}
           className="btn btn-success"
-          disabled={submitting || answers.some(a => a === -1)}
+          disabled={submitting || isTimeUp || answers.some(a => a === -1)}
         >
-          {submitting ? 'Отправка...' : 'Отправить ответы'}
+          {submitting ? 'Отправка...' : isTimeUp ? 'Отправка автоматически...' : 'Отправить ответы'}
         </button>
-        <button onClick={() => {
-          setSurvey(null);
-          setSurveyId('');
-          setAnswers([]);
-        }} className="btn btn-secondary">
+        <button 
+          onClick={() => {
+            setSurvey(null);
+            setPublicId('');
+            setAnswers([]);
+            setTimeLeft(null);
+            setIsTimeUp(false);
+          }} 
+          className="btn btn-secondary"
+          disabled={isTimeUp}
+        >
           Отмена
         </button>
       </div>
