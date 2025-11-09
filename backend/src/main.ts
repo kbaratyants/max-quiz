@@ -20,8 +20,8 @@ async function bootstrap() {
     .setTitle('MAX Quiz API')
     .setDescription('API для создания и прохождения опросов/квизов')
     .setVersion('1.0')
-    .addTag('auth', 'Авторизация')
     .addTag('surveys', 'Опросы')
+    .addTag('responses', 'Ответы')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);

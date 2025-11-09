@@ -5,20 +5,18 @@ import { api } from '../api';
 interface Question {
   text: string;
   options: string[];
-  correctOptionIndex?: number;
 }
 
 export default function CreateSurvey() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
-  const [type, setType] = useState<'quiz' | 'feedback'>('quiz');
   const [questions, setQuestions] = useState<Question[]>([
-    { text: '', options: ['', ''], correctOptionIndex: undefined },
+    { text: '', options: ['', ''] },
   ]);
   const [loading, setLoading] = useState(false);
 
   const addQuestion = () => {
-    setQuestions([...questions, { text: '', options: ['', ''], correctOptionIndex: undefined }]);
+    setQuestions([...questions, { text: '', options: ['', ''] }]);
   };
 
   const removeQuestion = (index: number) => {
@@ -72,23 +70,18 @@ export default function CreateSurvey() {
         alert(`Вопрос ${i + 1}: все варианты ответов должны быть заполнены`);
         return;
       }
-      if (type === 'quiz' && q.correctOptionIndex === undefined) {
-        alert(`Вопрос ${i + 1}: выберите правильный ответ`);
-        return;
-      }
     }
 
     setLoading(true);
     try {
       await api.post('/surveys', {
         title,
-        type,
         questions: questions.map(q => ({
           text: q.text,
           options: q.options,
-          correctOptionIndex: type === 'quiz' ? q.correctOptionIndex : undefined,
         })),
       });
+      alert('Опрос успешно создан!');
       navigate('/');
     } catch (error) {
       console.error('Ошибка создания опроса:', error);
@@ -109,16 +102,9 @@ export default function CreateSurvey() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Например: Квиз по JavaScript"
+              placeholder="Например: Опрос по программированию"
               required
             />
-          </div>
-          <div className="form-group">
-            <label>Тип опроса</label>
-            <select value={type} onChange={(e) => setType(e.target.value as 'quiz' | 'feedback')}>
-              <option value="quiz">Квиз (с правильными ответами)</option>
-              <option value="feedback">Обратная связь (без правильных ответов)</option>
-            </select>
           </div>
         </div>
 
@@ -158,15 +144,8 @@ export default function CreateSurvey() {
                     onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
                     placeholder={`Вариант ${oIndex + 1}`}
                     required
+                    style={{ flex: 1 }}
                   />
-                  {type === 'quiz' && (
-                    <input
-                      type="radio"
-                      name={`correct-${qIndex}`}
-                      checked={question.correctOptionIndex === oIndex}
-                      onChange={() => updateQuestion(qIndex, 'correctOptionIndex', oIndex)}
-                    />
-                  )}
                   {question.options.length > 2 && (
                     <button
                       type="button"
@@ -179,20 +158,14 @@ export default function CreateSurvey() {
                   )}
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => addOption(qIndex)}
-                  className="btn btn-secondary"
-                >
-                  + Добавить вариант
-                </button>
-                {type === 'quiz' && (
-                  <span style={{ lineHeight: '40px', color: '#666' }}>
-                    Радиокнопка = правильный ответ
-                  </span>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => addOption(qIndex)}
+                className="btn btn-secondary"
+                style={{ marginTop: '10px' }}
+              >
+                + Добавить вариант
+              </button>
             </div>
           </div>
         ))}
@@ -220,4 +193,3 @@ export default function CreateSurvey() {
     </div>
   );
 }
-

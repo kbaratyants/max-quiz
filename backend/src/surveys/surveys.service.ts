@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Survey, SurveyDocument } from '../schemas/survey.schema';
 import { Response, ResponseDocument } from '../schemas/response.schema';
 import { CreateSurveyDto } from './dto/create-survey.dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class SurveysService {
@@ -14,17 +15,15 @@ export class SurveysService {
 
   async createSurvey(dto: CreateSurveyDto, ownerId: string) {
     const survey = new this.surveyModel({
-      ...dto,
-      ownerId,
+      title: dto.title,
+      questions: dto.questions,
+      ownerId: ownerId || 'teacher-1',
     });
     return survey.save();
   }
 
-  async getSurveys(ownerId?: string) {
-    if (ownerId) {
-      return this.surveyModel.find({ ownerId }).sort({ createdAt: -1 }).exec();
-    }
-    return this.surveyModel.find().sort({ createdAt: -1 }).exec();
+  async getMySurveys(ownerId: string) {
+    return this.surveyModel.find({ ownerId }).sort({ createdAt: -1 }).exec();
   }
 
   async getSurveyById(id: string) {
@@ -35,39 +34,37 @@ export class SurveysService {
     return survey;
   }
 
-  async createResponse(surveyId: string, answers: number[], userId?: string) {
+  async createResponse(surveyId: string, answers: number[], clientId?: string) {
     const survey = await this.getSurveyById(surveyId);
     
-    let score: number | undefined;
-    if (survey.type === 'quiz') {
-      score = 0;
-      survey.questions.forEach((q, index) => {
-        if (q.correctOptionIndex !== undefined && answers[index] === q.correctOptionIndex) {
-          score!++;
-        }
-      });
-    }
-
+    const finalClientId = clientId || uuidv4();
+    
     const response = new this.responseModel({
       surveyId,
-      userId: userId ? userId : undefined,
       answers,
-      score,
+      clientId: finalClientId,
     });
-    return response.save();
+    
+    const savedResponse = await response.save();
+    
+    return {
+      ...savedResponse.toObject(),
+      clientId: finalClientId,
+    };
   }
 
-  async getSurveyStats(id: string) {
+
+  async getSurveyStats(id: string, ownerId: string) {
     const survey = await this.getSurveyById(id);
     
-    const responses = await this.responseModel.find({ surveyId: id }).exec();
+    if (survey.ownerId !== ownerId) {
+      throw new ForbiddenException('Доступ запрещен. Вы не являетесь создателем этого опроса.');
+    }
     
+    const responses = await this.responseModel.find({ surveyId: id }).exec();
     const totalResponses = responses.length;
-    const avgScore = survey.type === 'quiz' && responses.length > 0
-      ? responses.reduce((sum, r) => sum + (r.score || 0), 0) / responses.length
-      : undefined;
 
-    // Статистика по каждому вопросу
+    // Статистика по каждому вопросу через агрегацию
     const questionStats = survey.questions.map((question, qIndex) => {
       const optionCounts: Record<number, number> = {};
       question.options.forEach((_, oIndex) => {
@@ -97,12 +94,9 @@ export class SurveysService {
       survey: {
         _id: survey._id,
         title: survey.title,
-        type: survey.type,
       },
       totalResponses,
-      avgScore,
       questionStats,
     };
   }
 }
-

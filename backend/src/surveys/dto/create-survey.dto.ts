@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsEnum, IsArray, ValidateNested, IsOptional, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class QuestionDto {
@@ -11,12 +11,6 @@ class QuestionDto {
   @IsArray()
   @IsString({ each: true })
   options: string[];
-
-  @ApiProperty({ example: 0, description: 'Индекс правильного ответа (только для quiz)', required: false })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  correctOptionIndex?: number;
 }
 
 export class CreateSurveyDto {
@@ -24,14 +18,9 @@ export class CreateSurveyDto {
   @IsString()
   title: string;
 
-  @ApiProperty({ example: 'quiz', enum: ['quiz', 'feedback'], description: 'Тип опроса' })
-  @IsEnum(['quiz', 'feedback'])
-  type: 'quiz' | 'feedback';
-
   @ApiProperty({ type: [QuestionDto], description: 'Вопросы опроса' })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => QuestionDto)
   questions: QuestionDto[];
 }
-

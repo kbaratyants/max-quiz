@@ -8,14 +8,11 @@ export class Response {
   @Prop({ type: Types.ObjectId, ref: 'Survey', required: true })
   surveyId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
-  userId?: Types.ObjectId;
-
   @Prop({ type: [Number], required: true })
   answers: number[];
 
-  @Prop()
-  score?: number;
+  @Prop({ required: true })
+  clientId: string;
 }
 
 export const ResponseSchema = SchemaFactory.createForClass(Response);
