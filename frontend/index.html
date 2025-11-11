@@ -6,6 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MAX Quiz</title>
     <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <script>
+      // Проверяем загрузку библиотеки MAX WebApp
+      window.addEventListener('load', function() {
+        console.log('📚 Проверка загрузки MAX WebApp библиотеки...');
+        if (typeof window.WebApp !== 'undefined') {
+          console.log('✅ MAX WebApp библиотека загружена успешно');
+          console.log('WebApp объект:', window.WebApp);
+        } else {
+          console.warn('⚠️ MAX WebApp библиотека не найдена. Возможные причины:');
+          console.warn('  1. Приложение запущено не в MAX мессенджере');
+          console.warn('  2. Скрипт не загрузился (проверьте сеть)');
+          console.warn('  3. Библиотека еще не инициализирована');
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

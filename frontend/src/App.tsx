@@ -6,15 +6,21 @@ import TakeSurvey from './pages/TakeSurvey';
 import MyResponses from './pages/MyResponses';
 import MySurveys from './pages/MySurveys';
 import SurveyStats from './pages/SurveyStats';
-import { initWebApp, isMaxWebApp, getUserInfoFromWebApp } from './utils/webapp';
+import { initWebApp, isMaxWebApp, getUserInfoFromWebApp, debugWebApp } from './utils/webapp';
 import { useWebApp } from './hooks/useWebApp';
 import './App.css';
 
 function App() {
   useEffect(() => {
+    // Отлаживаем подключение MAX WebApp
+    debugWebApp();
+    
     // Инициализируем WebApp при загрузке
     if (isMaxWebApp()) {
       initWebApp();
+      console.log('✅ MAX WebApp инициализирован');
+    } else {
+      console.log('ℹ️ Приложение запущено не в MAX (обычный браузер)');
     }
   }, []);
 
