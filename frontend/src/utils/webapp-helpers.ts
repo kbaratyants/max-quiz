@@ -71,10 +71,27 @@ export function openCodeReader(fileSelect: boolean = true): Promise<string> {
   const webApp = getWebApp();
   
   if (isMaxWebApp() && webApp?.openCodeReader) {
-    return webApp.openCodeReader(fileSelect).then((result) => {
-      hapticFeedbackInternal('notification', 'success');
-      return result;
-    });
+    hapticFeedbackInternal('impact', 'light');
+    return webApp.openCodeReader(fileSelect)
+      .then((result) => {
+        if (result && result.trim()) {
+          hapticFeedbackInternal('notification', 'success');
+          return result.trim();
+        }
+        throw new Error('QR код не распознан или пуст');
+      })
+      .catch((error: any) => {
+        // Обработка различных типов ошибок
+        if (error?.code === 'client.open_code_reader.cancelled') {
+          throw new Error('Сканирование отменено');
+        } else if (error?.code === 'client.open_code_reader.permission_denied') {
+          throw new Error('Нет доступа к камере');
+        } else if (error?.code === 'client.open_code_reader.not_supported') {
+          throw new Error('Камера не поддерживается на этом устройстве');
+        }
+        hapticFeedbackInternal('notification', 'error');
+        throw error;
+      });
   }
   
   return Promise.reject(new Error('QR code reader not available'));

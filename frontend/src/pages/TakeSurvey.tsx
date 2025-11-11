@@ -116,8 +116,13 @@ export default function TakeSurvey() {
   
   const handleScanQR = async () => {
     try {
-      hapticFeedback('impact', 'light');
       const qrResult = await openCodeReader(true);
+      
+      if (!qrResult) {
+        alert('QR код не распознан');
+        return;
+      }
+      
       // Извлекаем publicId из URL если это ссылка
       const match = qrResult.match(/survey\/([a-zA-Z0-9_-]+)/);
       if (match) {
@@ -130,8 +135,16 @@ export default function TakeSurvey() {
       }
     } catch (error: any) {
       console.error('Ошибка сканирования QR:', error);
-      if (error.message !== 'QR code reader not available') {
-        alert('Не удалось отсканировать QR-код');
+      
+      // Показываем понятное сообщение пользователю
+      if (error.message === 'QR code reader not available') {
+        // Не показываем ошибку, если сканер недоступен (не в MAX)
+        return;
+      } else if (error.message === 'Сканирование отменено') {
+        // Не показываем ошибку, если пользователь просто отменил
+        return;
+      } else {
+        alert(error.message || 'Не удалось отсканировать QR-код');
       }
     }
   };
