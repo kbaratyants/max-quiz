@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../api';
+import { copyToClipboard, shareContent, shareMaxContent, hapticFeedback, isMaxWebApp } from '../utils/webapp-helpers';
 
 interface MySurvey {
   _id: string;
@@ -46,6 +47,7 @@ export default function MySurveys() {
       setClosingId(surveyId);
       await api.patch(`/surveys/${surveyId}/close`);
       await loadSurveys();
+      hapticFeedback('notification', 'success');
       alert('Опрос закрыт');
     } catch (error: any) {
       console.error('Ошибка закрытия опроса:', error);
@@ -59,9 +61,20 @@ export default function MySurveys() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = async (text: string) => {
+    await copyToClipboard(text);
     alert('Ссылка скопирована в буфер обмена!');
+  };
+  
+  const handleShare = (survey: MySurvey) => {
+    const text = `Опрос: ${survey.title}`;
+    if (shareMaxContent(text, survey.shareUrl)) {
+      return;
+    }
+    if (shareContent(text, survey.shareUrl)) {
+      return;
+    }
+    handleCopy(survey.shareUrl);
   };
 
   const getStatus = (survey: MySurvey) => {
@@ -157,12 +170,30 @@ export default function MySurveys() {
                             readOnly
                             style={{ flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                           />
-                          <button
-                            onClick={() => copyToClipboard(survey.shareUrl)}
-                            className="btn btn-primary"
-                          >
-                            Копировать
-                          </button>
+                          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => handleCopy(survey.shareUrl)}
+                              className="btn btn-primary"
+                            >
+                              Копировать
+                            </button>
+                            {isMaxWebApp() && (
+                              <>
+                                <button
+                                  onClick={() => handleShare(survey)}
+                                  className="btn btn-secondary"
+                                >
+                                  Поделиться в MAX
+                                </button>
+                                <button
+                                  onClick={() => shareContent(`Опрос: ${survey.title}`, survey.shareUrl)}
+                                  className="btn btn-secondary"
+                                >
+                                  Поделиться
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <p style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
                           Public ID: <code>{survey.publicId}</code>
