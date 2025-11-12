@@ -44,9 +44,39 @@ export class QuizzesController {
       data: {
         quizId: result.quiz._id,
         publicUrl: result.publicUrl,
-        qrDataUrl: result.qrDataUrl,
       },
     };
+  }
+
+  // ==============================
+  // Поиск квиза по ID
+  // ==============================
+  @Get(':id')
+  @ApiParam({ name: 'id', description: 'ID квиза', example: '64a1b2c3d4e5f67890123456' })
+  @ApiResponse({
+    status: 200,
+    description: 'Возвращает данные квиза по его ID',
+    schema: {
+      example: {
+        quizId: '64a1b2c3d4e5f67890123456',
+        title: 'Тест по JavaScript',
+        description: 'Базовый тест для проверки знаний JS',
+        questions: [
+          {
+            question: 'Что выведет console.log(typeof null)?',
+            options: ['null', 'object', 'undefined', 'number'],
+          },
+        ],
+        authorId: 'test-author',
+      },
+    },
+  })
+  async getQuizById(@Param('id') quizId: string) {
+    const quiz = await this.quizzesService.findById(quizId);
+    if (!quiz) {
+      return { status: 'error', message: 'Квиз не найден' };
+    }
+    return { status: 'ok', data: quiz };
   }
 
   @Get('my')

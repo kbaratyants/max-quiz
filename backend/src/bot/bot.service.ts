@@ -81,7 +81,7 @@ export class BotService implements OnModuleInit {
       { id: ctx.user.user_id.toString(), name: ctx.user.name },
     );
 
-    await ctx.reply(`✅ Тест создан!\nID: ${quiz.quiz._id}`);
+    await ctx.reply(`✅ Тест создан!\nID: ${quiz.quiz._id}, ${quiz.publicUrl}`);
   }
 
   private async handleQuizzes(ctx: Context) {
@@ -133,7 +133,7 @@ export class BotService implements OnModuleInit {
       );
     } catch (err) {
       this.logger.error(err);
-      return ctx.reply('❌ Произошла ошибка при прохождении квиза.');
+      return await ctx.reply(`❌ Произошла ошибка при прохождении квиза "${ctx.user.name}".`);
     }
   }
 

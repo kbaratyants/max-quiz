@@ -21,9 +21,9 @@ import { BotService } from './bot/bot.service';
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     if (process.env.NODE_ENV === 'development') {
-      consumer.apply(TestAuthMiddleware).forRoutes('quizzes');
+      consumer.apply(TestAuthMiddleware).forRoutes('*');
     } else {
-      consumer.apply(MaxAuthMiddleware).forRoutes('quizzes');
+      consumer.apply(MaxAuthMiddleware).forRoutes('*');
     }
   }
 }

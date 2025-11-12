@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { Quiz } from './schemas/quiz.schema';
 import { Submission } from '../submissions/schemas/submission.schema';
 import { CreateQuizDto } from './dto/create-quiz.dto';
-import * as QRCode from 'qrcode';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -16,8 +15,6 @@ export class QuizzesService {
 
   async create(dto: CreateQuizDto, user: any) {
     const uuid = randomUUID();
-    const publicUrl = `${process.env.BASE_URL}/quiz/${uuid}`;
-    const qrDataUrl = await QRCode.toDataURL(publicUrl);
 
     const quiz = await this.quizModel.create({
       title: dto.title,
@@ -25,12 +22,11 @@ export class QuizzesService {
       questions: dto.questions,
       authorId: user.id,
       authorName: user.first_name,
-      uuid,
-      publicUrl,
-      qrDataUrl,
+      uuid: uuid,
     });
 
-    return { quiz, publicUrl, qrDataUrl };
+    const publicUrl = `${process.env.BASE_URL}/api/quizzes/${quiz._id}`;
+    return { quiz, publicUrl };
   }
 
   async findAll() {

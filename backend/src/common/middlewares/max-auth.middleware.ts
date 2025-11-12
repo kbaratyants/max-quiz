@@ -1,68 +1,70 @@
 import {
   Injectable,
-  NestMiddleware,
+  CanActivate,
+  ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
+import { Request } from 'express';
 import * as crypto from 'crypto';
+import * as querystring from 'querystring';
 
 @Injectable()
-export class MaxAuthMiddleware implements NestMiddleware {
-  use(req: Request, res: Response, next: NextFunction) {
-    const initDataHeader = req.header('x-max-init-data');
+export class MaxAuthMiddleware implements CanActivate {
+  private readonly botToken = process.env.MAX_BOT_TOKEN!;
+  private readonly ttlSeconds = 300; // 5 минут
 
-    // Режим тестирования без авторизации
-    const isDevMode = process.env.NODE_ENV !== 'production';
-    const testUserId = 'test-user-id';
-    const testFirstName = 'Test';
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest<Request>();
+    const raw = req.header('x-max-init-data');
 
-    if (!initDataHeader) {
-      if (isDevMode) {
-        // Подставляем тестового пользователя
-        (req as any).user = { id: testUserId, first_name: testFirstName };
-        return next();
-      }
-      throw new UnauthorizedException('Missing MAX init data');
+    if (!raw) throw new UnauthorizedException('Missing init data');
+
+    const data = this.parseInitData(raw);
+    if (!this.checkTtl(data.auth_date)) {
+      throw new ForbiddenException('Init data expired');
     }
 
-    let data: any;
-    try {
-      data = JSON.parse(initDataHeader);
-    } catch {
-      throw new UnauthorizedException('Invalid init data format');
-    }
-
-    if (!this.verifyMaxData(data)) {
-      if (isDevMode) {
-        (req as any).user = { id: testUserId, first_name: testFirstName };
-        return next();
-      }
-      throw new UnauthorizedException('Invalid MAX signature');
+    if (!this.verify(data)) {
+      throw new UnauthorizedException('Invalid signature');
     }
 
     (req as any).user = data.user;
-    next();
+    return true;
   }
 
-  private verifyMaxData(data: any): boolean {
-    const token = process.env.MAX_DEV_TOKEN;
-    const hash = data.hash;
-    if (!token || !hash) return false;
+  private parseInitData(raw: string): any {
+    const decoded = decodeURIComponent(raw);
+    const parsed = querystring.parse(decoded);
+    const data: any = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      data[key] = key === 'user' ? JSON.parse(String(value)) : value;
+    }
+    return data;
+  }
 
-    const secretKey = crypto.createHash('sha256').update(token).digest();
+  private checkTtl(authDate: any): boolean {
+    const ts = Number(authDate);
+    if (!ts) return false;
+    const now = Date.now();
+    const delta = Math.abs(now - ts);
+    return delta < this.ttlSeconds * 1000;
+  }
 
-    const payload = Object.entries(data)
-      .filter(([key]) => key !== 'hash' && key !== 'signature')
-      .map(
-        ([key, value]) =>
-          `${key}=${typeof value === 'object' ? JSON.stringify(value) : value}`,
-      )
+  private verify(data: any): boolean {
+    const { hash, ...rest } = data;
+    const secretKey = crypto
+      .createHmac('sha256', this.botToken)
+      .update('WebAppData')
+      .digest();
+    const payload = Object.entries(rest)
+      .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : v}`)
       .sort()
       .join('\n');
-
-    const hmac = crypto.createHmac('sha256', secretKey);
-    const computedHash = hmac.update(payload).digest('hex');
-
-    return computedHash === hash;
+    const check = crypto
+      .createHmac('sha256', secretKey)
+      .update(payload)
+      .digest('hex');
+    return hash === check;
   }
 }

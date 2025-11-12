@@ -24,12 +24,6 @@ export class Quiz extends Document {
 
   @Prop({ unique: true })
   uuid: string;
-
-  @Prop()
-  publicUrl: string;
-
-  @Prop()
-  qrDataUrl: string;
 }
 
 export const QuizSchema = SchemaFactory.createForClass(Quiz);
