@@ -39,11 +39,14 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error('Ошибка сканирования QR:', error);
-      setQrDebug(`❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`);
       
-      if (error.message === 'QR code reader not available') {
+      // Выводим полную информацию об ошибке для отладки
+      const errorDetails = error?.message || JSON.stringify(error, null, 2) || 'Неизвестная ошибка';
+      setQrDebug(`❌ Ошибка:\n${errorDetails}\n\nТип: ${typeof error}\nКлючи: ${error ? Object.keys(error).join(', ') : 'нет'}`);
+      
+      if (error?.message?.includes('QR code reader not available')) {
         setQrDebug('❌ QR сканер недоступен (не в MAX WebApp)');
-      } else if (error.message === 'Сканирование отменено') {
+      } else if (error?.message?.includes('Сканирование отменено')) {
         setQrDebug('⚠️ Сканирование отменено пользователем');
       }
     }

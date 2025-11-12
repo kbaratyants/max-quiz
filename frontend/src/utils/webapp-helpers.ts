@@ -74,13 +74,38 @@ export function openCodeReader(fileSelect: boolean = true): Promise<string> {
     hapticFeedbackInternal('impact', 'light');
     return webApp.openCodeReader(fileSelect)
       .then((result) => {
-        if (result && result.trim()) {
-          hapticFeedbackInternal('notification', 'success');
-          return result.trim();
+        // Логируем что пришло для отладки
+        console.log('[QR Reader] Получен результат:', result);
+        console.log('[QR Reader] Тип результата:', typeof result);
+        console.log('[QR Reader] Результат как JSON:', JSON.stringify(result, null, 2));
+        
+        // MAX может вернуть либо строку, либо объект { value: string }
+        let value: string;
+        if (typeof result === 'string') {
+          value = result;
+        } else if (result && typeof result === 'object' && 'value' in result && typeof result.value === 'string') {
+          value = result.value;
+        } else {
+          // Выводим детальную информацию об ошибке
+          const errorMsg = `QR код не распознан. Получено: ${JSON.stringify(result)} (тип: ${typeof result})`;
+          console.error('[QR Reader] Ошибка парсинга:', errorMsg);
+          throw new Error(errorMsg);
         }
-        throw new Error('QR код не распознан или пуст');
+        
+        const trimmedValue = value.trim();
+        if (trimmedValue) {
+          hapticFeedbackInternal('notification', 'success');
+          return trimmedValue;
+        }
+        throw new Error(`QR код пуст. Исходное значение: ${JSON.stringify(value)}`);
       })
       .catch((error: any) => {
+        // Логируем полную информацию об ошибке
+        console.error('[QR Reader] Ошибка:', error);
+        console.error('[QR Reader] Тип ошибки:', typeof error);
+        console.error('[QR Reader] Ошибка как JSON:', JSON.stringify(error, null, 2));
+        console.error('[QR Reader] Ключи ошибки:', error ? Object.keys(error) : 'нет');
+        
         // Обработка различных типов ошибок
         if (error?.code === 'client.open_code_reader.cancelled') {
           throw new Error('Сканирование отменено');
@@ -89,8 +114,12 @@ export function openCodeReader(fileSelect: boolean = true): Promise<string> {
         } else if (error?.code === 'client.open_code_reader.not_supported') {
           throw new Error('Камера не поддерживается на этом устройстве');
         }
+        
+        // Выводим детальную информацию об ошибке
+        const errorDetails = JSON.stringify(error, null, 2);
+        const errorMessage = error?.message || error?.toString() || 'Неизвестная ошибка';
         hapticFeedbackInternal('notification', 'error');
-        throw error;
+        throw new Error(`${errorMessage}\n\nДетали:\n${errorDetails}`);
       });
   }
   

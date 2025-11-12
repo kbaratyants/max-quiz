@@ -52,7 +52,7 @@ declare global {
       openMaxLink?: (url: string) => void;
       shareContent?: (text: string, link: string) => void;
       shareMaxContent?: (text: string, link: string) => void;
-      openCodeReader?: (fileSelect?: boolean) => Promise<string>;
+      openCodeReader?: (fileSelect?: boolean) => Promise<string | { value: string }>;
       expand?: () => void;
     };
   }
