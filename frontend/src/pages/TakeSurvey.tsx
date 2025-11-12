@@ -1,113 +1,84 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../api';
+import { api, Quiz, Submission } from '../api';
 import { openCodeReader, hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection, isMaxWebApp } from '../utils/webapp-helpers';
 import { isMaxWebApp as checkMaxWebApp } from '../utils/webapp';
-
-interface Survey {
-  _id: string;
-  title: string;
-  questions: {
-    text: string;
-    options: string[];
-  }[];
-  timeLimitSec?: number;
-}
 
 export default function TakeSurvey() {
   const navigate = useNavigate();
   const { publicId: paramPublicId } = useParams<{ publicId?: string }>();
-  const [publicId, setPublicId] = useState(paramPublicId || '');
-  const [survey, setSurvey] = useState<Survey | null>(null);
+  const [quizId, setQuizId] = useState(paramPublicId || '');
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<Submission | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [isTimeUp, setIsTimeUp] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    if (paramPublicId) {
-      loadSurveyByPublicId(paramPublicId);
+  const loadQuizById = useCallback(async (id: string) => {
+    if (!id || id.trim() === '') {
+      return;
     }
     
-    // Включаем защиту от скриншотов при прохождении опроса в MAX
-    if (checkMaxWebApp() && survey) {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get(`/quizzes/${id}`);
+      if (response.data.status === 'ok' && response.data.data) {
+        setQuiz(response.data.data);
+        setAnswers(new Array(response.data.data.questions.length).fill(-1));
+      } else {
+        setError('Квиз не найден');
+      }
+    } catch (error: any) {
+      console.error('Ошибка загрузки квиза:', error);
+      if (error.response?.status === 404) {
+        setError('Квиз не найден');
+      } else {
+        setError('Не удалось загрузить квиз');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Загружаем квиз при изменении paramPublicId
+  useEffect(() => {
+    if (paramPublicId) {
+      loadQuizById(paramPublicId);
+    }
+  }, [paramPublicId, loadQuizById]);
+
+  // Включаем защиту от скриншотов при прохождении квиза в MAX
+  useEffect(() => {
+    if (checkMaxWebApp() && quiz) {
       enableScreenCaptureProtection();
       return () => {
         disableScreenCaptureProtection();
       };
     }
-    
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [paramPublicId, survey]);
+  }, [quiz]);
 
+  // Очистка таймера при размонтировании
   useEffect(() => {
-    if (timeLeft !== null && timeLeft > 0 && !isTimeUp) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev === null || prev <= 1) {
-            setIsTimeUp(true);
-            if (timerRef.current) clearInterval(timerRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (timeLeft === 0 && !isTimeUp) {
-      setIsTimeUp(true);
-      handleAutoSubmit();
-    }
-
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
     };
-  }, [timeLeft, isTimeUp]);
+  }, []);
 
-  const loadSurveyByPublicId = async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.get(`/surveys/by-public/${id}`);
-      setSurvey(response.data);
-      setAnswers(new Array(response.data.questions.length).fill(-1));
-      
-      if (response.data.timeLimitSec) {
-        setTimeLeft(response.data.timeLimitSec);
-        setIsTimeUp(false);
-      }
-    } catch (error: any) {
-      console.error('Ошибка загрузки опроса:', error);
-      if (error.response?.status === 404) {
-        setError('Опрос не найден');
-      } else if (error.response?.status === 410) {
-        setError(error.response?.data?.message || 'Опрос закрыт или срок его действия истёк');
-      } else {
-        setError('Не удалось загрузить опрос');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadSurvey = async () => {
-    if (!publicId.trim()) {
-      alert('Введите ID опроса');
+  const loadQuiz = async () => {
+    if (!quizId.trim()) {
+      alert('Введите ID квиза');
       return;
     }
-    await loadSurveyByPublicId(publicId);
+    await loadQuizById(quizId);
   };
 
   const handleAnswer = (questionIndex: number, optionIndex: number) => {
-    if (isTimeUp) return;
     hapticFeedback('selection');
     const newAnswers = [...answers];
     newAnswers[questionIndex] = optionIndex;
@@ -123,15 +94,15 @@ export default function TakeSurvey() {
         return;
       }
       
-      // Извлекаем publicId из URL если это ссылка
-      const match = qrResult.match(/survey\/([a-zA-Z0-9_-]+)/);
+      // Извлекаем quizId из URL если это ссылка
+      const match = qrResult.match(/quizzes\/([a-zA-Z0-9_-]+)/);
       if (match) {
-        setPublicId(match[1]);
-        await loadSurveyByPublicId(match[1]);
+        setQuizId(match[1]);
+        await loadQuizById(match[1]);
       } else {
-        // Пробуем использовать как publicId напрямую
-        setPublicId(qrResult);
-        await loadSurveyByPublicId(qrResult);
+        // Пробуем использовать как quizId напрямую
+        setQuizId(qrResult);
+        await loadQuizById(qrResult);
       }
     } catch (error: any) {
       console.error('Ошибка сканирования QR:', error);
@@ -149,37 +120,7 @@ export default function TakeSurvey() {
     }
   };
 
-  const handleAutoSubmit = async () => {
-    if (isTimeUp || submitting || !survey) return;
-    
-    // Отправляем то, что уже заполнено
-    const filledAnswers = answers.map((a) => a === -1 ? 0 : a);
-    
-    setSubmitting(true);
-    try {
-      const response = await api.post(`/surveys/${survey._id}/responses`, { answers: filledAnswers });
-      setSubmitted(true);
-      if (response.data.clientId) {
-        localStorage.setItem('max-quiz-client-id', response.data.clientId);
-      }
-    } catch (error: any) {
-      console.error('Ошибка отправки ответов:', error);
-      if (error.response?.status === 410) {
-        setError('Опрос закрыт или срок его действия истёк');
-      } else {
-        alert('Не удалось отправить ответы');
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleSubmit = async () => {
-    if (isTimeUp) {
-      handleAutoSubmit();
-      return;
-    }
-
     if (answers.some(a => a === -1)) {
       hapticFeedback('notification', 'error');
       alert('Ответьте на все вопросы');
@@ -189,49 +130,41 @@ export default function TakeSurvey() {
     setSubmitting(true);
     hapticFeedback('impact', 'medium');
     try {
-      if (!survey) return;
-      const response = await api.post(`/surveys/${survey._id}/responses`, { answers });
+      if (!quiz) return;
+      const response = await api.patch(`/submissions/quiz/${quiz._id}/submit`, { answers });
       setSubmitted(true);
+      setSubmissionResult(response.data);
       hapticFeedback('notification', 'success');
-      if (response.data.clientId) {
-        localStorage.setItem('max-quiz-client-id', response.data.clientId);
-      }
     } catch (error: any) {
       console.error('Ошибка отправки ответов:', error);
       hapticFeedback('notification', 'error');
-      if (error.response?.status === 410) {
-        setError('Опрос закрыт или срок его действия истёк');
-      } else {
-        alert('Не удалось отправить ответы');
-      }
+      alert('Не удалось отправить ответы');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  if (submitted) {
+  if (submitted && submissionResult) {
     return (
       <div className="container">
         <div className="card" style={{ textAlign: 'center' }}>
-          <h2>Спасибо за прохождение опроса!</h2>
-          <p style={{ marginTop: '20px' }}>Ваши ответы успешно сохранены.</p>
-          <div style={{ marginTop: '30px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          <h2>Спасибо за прохождение квиза! 🎉</h2>
+          <div style={{ marginTop: '20px', fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>
+            Ваш результат: {submissionResult.score} из {submissionResult.total}
+          </div>
+          <div style={{ marginTop: '10px', fontSize: '18px', color: '#666' }}>
+            {Math.round((submissionResult.score / submissionResult.total) * 100)}% правильных ответов
+          </div>
+          <div style={{ marginTop: '30px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={() => {
-              setSurvey(null);
-              setPublicId('');
+              setQuiz(null);
+              setQuizId('');
               setAnswers([]);
               setSubmitted(false);
+              setSubmissionResult(null);
               setError(null);
-              setTimeLeft(null);
-              setIsTimeUp(false);
             }} className="btn btn-primary">
-              Пройти другой опрос
+              Пройти другой квиз
             </button>
             <button onClick={() => navigate('/')} className="btn btn-secondary">
               На главную
@@ -251,8 +184,8 @@ export default function TakeSurvey() {
           <div style={{ marginTop: '30px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
             <button onClick={() => {
               setError(null);
-              setPublicId('');
-              setSurvey(null);
+              setQuizId('');
+              setQuiz(null);
             }} className="btn btn-primary">
               Попробовать снова
             </button>
@@ -265,28 +198,28 @@ export default function TakeSurvey() {
     );
   }
 
-  if (!survey) {
+  if (!quiz) {
     return (
       <div className="container">
-        <h2>Пройти опрос по ID</h2>
+        <h2>Пройти квиз по ID</h2>
         <div className="card">
           <div className="form-group">
-            <label>ID опроса (publicId)</label>
+            <label>ID квиза</label>
             <input
               type="text"
-              value={publicId}
-              onChange={(e) => setPublicId(e.target.value)}
-              placeholder="Введите ID опроса"
+              value={quizId}
+              onChange={(e) => setQuizId(e.target.value)}
+              placeholder="Введите ID квиза"
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
-                  loadSurvey();
+                  loadQuiz();
                 }
               }}
             />
           </div>
           <div style={{ display: 'flex', gap: '10px', marginTop: '15px', flexWrap: 'wrap' }}>
-            <button onClick={loadSurvey} className="btn btn-primary" disabled={loading}>
-              {loading ? 'Загрузка...' : 'Загрузить опрос'}
+            <button onClick={loadQuiz} className="btn btn-primary" disabled={loading}>
+              {loading ? 'Загрузка...' : 'Загрузить квиз'}
             </button>
             {isMaxWebApp() && (
               <button onClick={handleScanQR} className="btn btn-secondary">
@@ -304,50 +237,29 @@ export default function TakeSurvey() {
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>{survey.title}</h2>
-        {timeLeft !== null && (
-          <div style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            backgroundColor: isTimeUp ? '#dc3545' : timeLeft < 60 ? '#ffc107' : '#28a745',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '18px',
-            minWidth: '80px',
-            textAlign: 'center'
-          }}>
-            {isTimeUp ? 'Время вышло!' : formatTime(timeLeft)}
-          </div>
+      <div style={{ marginBottom: '20px' }}>
+        <h2>{quiz.title}</h2>
+        {quiz.description && (
+          <p style={{ color: '#666', marginTop: '10px' }}>{quiz.description}</p>
         )}
       </div>
 
-      {isTimeUp && (
-        <div className="card" style={{ backgroundColor: '#fff3cd', borderColor: '#ffc107', marginBottom: '20px' }}>
-          <p style={{ margin: 0, fontWeight: 'bold' }}>
-            Время истекло! Форма заблокирована. Отправляются уже заполненные ответы...
-          </p>
-        </div>
-      )}
-
-      {survey.questions.map((question, qIndex) => (
-        <div key={qIndex} className="card" style={{ opacity: isTimeUp ? 0.6 : 1 }}>
+      {quiz.questions.map((question, qIndex) => (
+        <div key={qIndex} className="card">
           <h3>
-            Вопрос {qIndex + 1}: {question.text}
+            Вопрос {qIndex + 1}: {question.question}
           </h3>
           <div className="radio-group">
             {question.options.map((option, oIndex) => (
               <label
                 key={oIndex}
                 className={`radio-option ${answers[qIndex] === oIndex ? 'selected' : ''}`}
-                style={{ pointerEvents: isTimeUp ? 'none' : 'auto' }}
               >
                 <input
                   type="radio"
                   name={`question-${qIndex}`}
                   checked={answers[qIndex] === oIndex}
                   onChange={() => handleAnswer(qIndex, oIndex)}
-                  disabled={isTimeUp}
                 />
                 <span>{option}</span>
               </label>
@@ -356,24 +268,21 @@ export default function TakeSurvey() {
         </div>
       ))}
 
-      <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+      <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button
           onClick={handleSubmit}
           className="btn btn-success"
-          disabled={submitting || isTimeUp || answers.some(a => a === -1)}
+          disabled={submitting || answers.some(a => a === -1)}
         >
-          {submitting ? 'Отправка...' : isTimeUp ? 'Отправка автоматически...' : 'Отправить ответы'}
+          {submitting ? 'Отправка...' : 'Отправить ответы'}
         </button>
         <button 
           onClick={() => {
-            setSurvey(null);
-            setPublicId('');
+            setQuiz(null);
+            setQuizId('');
             setAnswers([]);
-            setTimeLeft(null);
-            setIsTimeUp(false);
           }} 
           className="btn btn-secondary"
-          disabled={isTimeUp}
         >
           Отмена
         </button>

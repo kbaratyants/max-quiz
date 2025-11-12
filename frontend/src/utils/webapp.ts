@@ -63,7 +63,19 @@ export function getWebApp(): typeof window.WebApp | undefined {
 }
 
 export function isMaxWebApp(): boolean {
-  return typeof window.WebApp !== 'undefined';
+  // Проверяем не только наличие объекта, но и что это реальный MAX WebApp
+  if (typeof window === 'undefined' || typeof window.WebApp === 'undefined') {
+    return false;
+  }
+  
+  // Проверяем, что это не наш мок
+  if ((window as any).__MAX_WEBAPP_IS_MOCK__) {
+    return false;
+  }
+  
+  // Дополнительная проверка: в реальном MAX WebApp должен быть метод ready
+  const webApp = window.WebApp;
+  return typeof webApp === 'object' && typeof webApp.ready === 'function';
 }
 
 export function getUserIdFromWebApp(): string | null {
@@ -102,15 +114,28 @@ export function getInitDataUnsafe() {
   return webApp?.initDataUnsafe || null;
 }
 
+let isInitialized = false;
+
 export function initWebApp() {
+  // Защита от повторной инициализации
+  if (isInitialized) {
+    return;
+  }
+
   const webApp = getWebApp();
-  if (webApp) {
-    // Сообщаем MAX, что мини-приложение готово
-    webApp.ready();
-    
-    // Расширяем приложение на весь экран
-    if (webApp.expand) {
-      webApp.expand();
+  if (webApp && typeof webApp.ready === 'function') {
+    try {
+      // Сообщаем MAX, что мини-приложение готово
+      webApp.ready();
+      
+      // Расширяем приложение на весь экран
+      if (typeof webApp.expand === 'function') {
+        webApp.expand();
+      }
+      
+      isInitialized = true;
+    } catch (error) {
+      console.warn('[MAX Bridge] Ошибка инициализации WebApp:', error);
     }
   }
 }

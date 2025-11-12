@@ -5,31 +5,28 @@ import { api } from '../api';
 import { copyToClipboard, shareContent, shareMaxContent, hapticFeedback, isMaxWebApp } from '../utils/webapp-helpers';
 
 interface Question {
-  text: string;
+  question: string;
   options: string[];
+  correctAnswer: number;
 }
 
-interface CreatedSurvey {
-  surveyId: string;
-  publicId: string;
-  shareUrl: string;
-  qrData: string;
-  isClosed: boolean;
+interface CreatedQuiz {
+  quizId: string;
+  publicUrl: string;
 }
 
 export default function CreateSurvey() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState<Question[]>([
-    { text: '', options: ['', ''] },
+    { question: '', options: ['', ''], correctAnswer: 0 },
   ]);
-  const [expiresInHours, setExpiresInHours] = useState<number | ''>('');
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | ''>('');
   const [loading, setLoading] = useState(false);
-  const [createdSurvey, setCreatedSurvey] = useState<CreatedSurvey | null>(null);
+  const [createdQuiz, setCreatedQuiz] = useState<CreatedQuiz | null>(null);
 
   const addQuestion = () => {
-    setQuestions([...questions, { text: '', options: ['', ''] }]);
+    setQuestions([...questions, { question: '', options: ['', ''], correctAnswer: 0 }]);
   };
 
   const removeQuestion = (index: number) => {
@@ -48,11 +45,6 @@ export default function CreateSurvey() {
     setQuestions(updated);
   };
 
-  const removeOption = (qIndex: number, oIndex: number) => {
-    const updated = [...questions];
-    updated[qIndex].options = updated[qIndex].options.filter((_, i) => i !== oIndex);
-    setQuestions(updated);
-  };
 
   const updateOption = (qIndex: number, oIndex: number, value: string) => {
     const updated = [...questions];
@@ -87,7 +79,7 @@ export default function CreateSurvey() {
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      if (!q.text.trim()) {
+      if (!q.question.trim()) {
         alert(`Вопрос ${i + 1}: введите текст вопроса`);
         return;
       }
@@ -99,56 +91,56 @@ export default function CreateSurvey() {
         alert(`Вопрос ${i + 1}: все варианты ответов должны быть заполнены`);
         return;
       }
+      if (q.correctAnswer < 0 || q.correctAnswer >= q.options.length) {
+        alert(`Вопрос ${i + 1}: выберите правильный ответ`);
+        return;
+      }
     }
 
     setLoading(true);
     try {
-      const expiresAt = expiresInHours 
-        ? new Date(Date.now() + Number(expiresInHours) * 60 * 60 * 1000).toISOString()
-        : undefined;
-      
-      const timeLimitSec = timeLimitMinutes 
-        ? Number(timeLimitMinutes) * 60
-        : undefined;
-
-      const response = await api.post('/surveys', {
+      const response = await api.post('/quizzes', {
         title,
+        description: description.trim() || undefined,
         questions: questions.map(q => ({
-          text: q.text,
+          question: q.question,
           options: q.options,
+          correctAnswer: q.correctAnswer,
         })),
-        expiresAt,
-        timeLimitSec,
       });
       
-      setCreatedSurvey(response.data);
+      if (response.data.status === 'ok') {
+        setCreatedQuiz(response.data.data);
+      } else {
+        throw new Error('Не удалось создать квиз');
+      }
     } catch (error) {
-      console.error('Ошибка создания опроса:', error);
-      alert('Не удалось создать опрос');
+      console.error('Ошибка создания квиза:', error);
+      alert('Не удалось создать квиз');
     } finally {
       setLoading(false);
     }
     hapticFeedback('notification', 'success');
   };
 
-  if (createdSurvey) {
+  if (createdQuiz) {
     return (
       <div className="container">
         <div className="card" style={{ textAlign: 'center' }}>
-          <h2>Опрос успешно создан! 🎉</h2>
+          <h2>Квиз успешно создан! 🎉</h2>
           
           <div style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
             <div>
               <h3>Ссылка для прохождения:</h3>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', marginTop: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
                 <input
                   type="text"
-                  value={createdSurvey.shareUrl}
+                  value={createdQuiz.publicUrl}
                   readOnly
-                  style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '4px', minWidth: '300px' }}
+                  style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '4px', minWidth: '300px', maxWidth: '100%' }}
                 />
                 <button
-                  onClick={() => handleCopy(createdSurvey.shareUrl)}
+                  onClick={() => handleCopy(createdQuiz.publicUrl)}
                   className="btn btn-primary"
                 >
                   Копировать
@@ -156,13 +148,13 @@ export default function CreateSurvey() {
                 {isMaxWebApp() && (
                   <>
                     <button
-                      onClick={() => handleShare(`Опрос: ${createdSurvey.shareUrl}`, createdSurvey.shareUrl)}
+                      onClick={() => handleShare(`Квиз: ${title}`, createdQuiz.publicUrl)}
                       className="btn btn-secondary"
                     >
                       Поделиться в MAX
                     </button>
                     <button
-                      onClick={() => shareContent(`Опрос: ${createdSurvey.shareUrl}`, createdSurvey.shareUrl)}
+                      onClick={() => shareContent(`Квиз: ${title}`, createdQuiz.publicUrl)}
                       className="btn btn-secondary"
                     >
                       Поделиться
@@ -175,20 +167,19 @@ export default function CreateSurvey() {
             <div>
               <h3>QR-код:</h3>
               <div style={{ padding: '20px', background: 'white', borderRadius: '8px', display: 'inline-block' }}>
-                <QRCodeSVG value={createdSurvey.qrData} size={200} />
+                <QRCodeSVG value={createdQuiz.publicUrl} size={200} />
               </div>
             </div>
 
-            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => navigate('/my-surveys')} className="btn btn-primary">
-                Мои опросы
+                Мои квизы
               </button>
               <button onClick={() => {
-                setCreatedSurvey(null);
+                setCreatedQuiz(null);
                 setTitle('');
-                setQuestions([{ text: '', options: ['', ''] }]);
-                setExpiresInHours('');
-                setTimeLimitMinutes('');
+                setDescription('');
+                setQuestions([{ question: '', options: ['', ''], correctAnswer: 0 }]);
               }} className="btn btn-secondary">
                 Создать ещё
               </button>
@@ -204,42 +195,28 @@ export default function CreateSurvey() {
 
   return (
     <div className="container">
-      <h2>Создать опрос</h2>
+      <h2>Создать квиз</h2>
       <form onSubmit={handleSubmit}>
         <div className="card">
           <div className="form-group">
-            <label>Название опроса</label>
+            <label>Название квиза</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Например: Опрос по программированию"
+              placeholder="Например: Тест по JavaScript"
               required
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px' }}>
-            <div className="form-group">
-              <label>Время жизни опроса (в часах, опционально)</label>
-              <input
-                type="number"
-                value={expiresInHours}
-                onChange={(e) => setExpiresInHours(e.target.value ? Number(e.target.value) : '')}
-                placeholder="Например: 24"
-                min="1"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Таймер на прохождение (в минутах, опционально)</label>
-              <input
-                type="number"
-                value={timeLimitMinutes}
-                onChange={(e) => setTimeLimitMinutes(e.target.value ? Number(e.target.value) : '')}
-                placeholder="Например: 5"
-                min="1"
-              />
-            </div>
+          <div className="form-group">
+            <label>Описание (опционально)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Краткое описание квиза"
+              rows={3}
+            />
           </div>
         </div>
 
@@ -262,8 +239,8 @@ export default function CreateSurvey() {
             <div className="form-group">
               <label>Текст вопроса</label>
               <textarea
-                value={question.text}
-                onChange={(e) => updateQuestion(qIndex, 'text', e.target.value)}
+                value={question.question}
+                onChange={(e) => updateQuestion(qIndex, 'question', e.target.value)}
                 placeholder="Введите вопрос"
                 required
               />
@@ -272,7 +249,14 @@ export default function CreateSurvey() {
             <div className="form-group">
               <label>Варианты ответов</label>
               {question.options.map((option, oIndex) => (
-                <div key={oIndex} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <div key={oIndex} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                  <input
+                    type="radio"
+                    name={`correct-${qIndex}`}
+                    checked={question.correctAnswer === oIndex}
+                    onChange={() => updateQuestion(qIndex, 'correctAnswer', oIndex)}
+                    style={{ marginRight: '5px' }}
+                  />
                   <input
                     type="text"
                     value={option}
@@ -284,7 +268,14 @@ export default function CreateSurvey() {
                   {question.options.length > 2 && (
                     <button
                       type="button"
-                      onClick={() => removeOption(qIndex, oIndex)}
+                      onClick={() => {
+                        const updated = [...questions];
+                        updated[qIndex].options = updated[qIndex].options.filter((_, i) => i !== oIndex);
+                        if (updated[qIndex].correctAnswer >= updated[qIndex].options.length) {
+                          updated[qIndex].correctAnswer = updated[qIndex].options.length - 1;
+                        }
+                        setQuestions(updated);
+                      }}
                       className="btn btn-secondary"
                       style={{ padding: '5px 10px' }}
                     >
@@ -293,14 +284,18 @@ export default function CreateSurvey() {
                   )}
                 </div>
               ))}
-              <button
-                type="button"
-                onClick={() => addOption(qIndex)}
-                className="btn btn-secondary"
-                style={{ marginTop: '10px' }}
-              >
-                + Добавить вариант
-              </button>
+              <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => addOption(qIndex)}
+                  className="btn btn-secondary"
+                >
+                  + Добавить вариант
+                </button>
+                <span style={{ color: '#666', fontSize: '14px', alignSelf: 'center' }}>
+                  Выберите правильный ответ (радиокнопка)
+                </span>
+              </div>
             </div>
           </div>
         ))}
@@ -314,7 +309,7 @@ export default function CreateSurvey() {
             + Добавить вопрос
           </button>
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Создание...' : 'Создать опрос'}
+            {loading ? 'Создание...' : 'Создать квиз'}
           </button>
           <button
             type="button"

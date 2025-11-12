@@ -8,13 +8,9 @@ export default defineConfig({
     port: 5173,
     allowedHosts: ['max-quiz.ru'],
     strictPort: true,
-    hmr: {
-      host: 'max-quiz.ru',  // куда браузер реально может достучаться
-      protocol: 'wss',      // если страница открыта по https
-      clientPort: 443,      // порт, который видит браузер (обычно 443 на https)
-    },
+    hmr: false, // Отключаем HMR полностью, чтобы избежать проблем с WebSocket
     watch: {
-      usePolling: true,
+      usePolling: false,
     },
   },
 });

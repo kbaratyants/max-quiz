@@ -1,63 +1,28 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { api } from '../api';
-import { copyToClipboard, shareContent, shareMaxContent, hapticFeedback, isMaxWebApp } from '../utils/webapp-helpers';
-
-interface MySurvey {
-  _id: string;
-  title: string;
-  createdAt: string;
-  publicId: string;
-  shareUrl: string;
-  isClosed: boolean;
-  expiresAt?: string;
-  isExpired?: boolean;
-}
+import { api, Quiz } from '../api';
+import { copyToClipboard, shareContent, shareMaxContent, isMaxWebApp } from '../utils/webapp-helpers';
 
 export default function MySurveys() {
-  const [surveys, setSurveys] = useState<MySurvey[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedSurvey, setExpandedSurvey] = useState<string | null>(null);
-  const [closingId, setClosingId] = useState<string | null>(null);
+  const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
 
   useEffect(() => {
-    loadSurveys();
+    loadQuizzes();
   }, []);
 
-  const loadSurveys = async () => {
+  const loadQuizzes = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/surveys/mine');
-      setSurveys(response.data);
+      const response = await api.get('/quizzes/my');
+      setQuizzes(response.data);
     } catch (error) {
-      console.error('Ошибка загрузки опросов:', error);
-      alert('Не удалось загрузить список опросов');
+      console.error('Ошибка загрузки квизов:', error);
+      alert('Не удалось загрузить список квизов');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCloseSurvey = async (surveyId: string) => {
-    if (!confirm('Вы уверены, что хотите закрыть этот опрос?')) {
-      return;
-    }
-
-    try {
-      setClosingId(surveyId);
-      await api.patch(`/surveys/${surveyId}/close`);
-      await loadSurveys();
-      hapticFeedback('notification', 'success');
-      alert('Опрос закрыт');
-    } catch (error: any) {
-      console.error('Ошибка закрытия опроса:', error);
-      if (error.response?.status === 403) {
-        alert('У вас нет прав для закрытия этого опроса');
-      } else {
-        alert('Не удалось закрыть опрос');
-      }
-    } finally {
-      setClosingId(null);
     }
   };
 
@@ -66,21 +31,20 @@ export default function MySurveys() {
     alert('Ссылка скопирована в буфер обмена!');
   };
   
-  const handleShare = (survey: MySurvey) => {
-    const text = `Опрос: ${survey.title}`;
-    if (shareMaxContent(text, survey.shareUrl)) {
+  const handleShare = (quiz: Quiz) => {
+    const publicUrl = `${window.location.origin}/survey/${quiz._id}`;
+    const text = `Квиз: ${quiz.title}`;
+    if (shareMaxContent(text, publicUrl)) {
       return;
     }
-    if (shareContent(text, survey.shareUrl)) {
+    if (shareContent(text, publicUrl)) {
       return;
     }
-    handleCopy(survey.shareUrl);
+    handleCopy(publicUrl);
   };
 
-  const getStatus = (survey: MySurvey) => {
-    if (survey.isClosed) return { text: 'Закрыт', color: '#dc3545' };
-    if (survey.isExpired) return { text: 'Истёк', color: '#ffc107' };
-    return { text: 'Активен', color: '#28a745' };
+  const getPublicUrl = (quiz: Quiz) => {
+    return `${window.location.origin}/survey/${quiz._id}`;
   };
 
   if (loading) {
@@ -89,11 +53,11 @@ export default function MySurveys() {
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Мои созданные опросы</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <h2>Мои созданные квизы</h2>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <Link to="/create" className="btn btn-primary">
-            + Создать опрос
+            + Создать квиз
           </Link>
           <Link to="/" className="btn btn-secondary">
             ← На главную
@@ -101,60 +65,48 @@ export default function MySurveys() {
         </div>
       </div>
 
-      {surveys.length === 0 ? (
+      {quizzes.length === 0 ? (
         <div className="card">
-          <p>Вы еще не создали ни одного опроса.</p>
+          <p>Вы еще не создали ни одного квиза.</p>
           <Link to="/create" className="btn btn-primary" style={{ marginTop: '15px', display: 'inline-block' }}>
-            Создать опрос
+            Создать квиз
           </Link>
         </div>
       ) : (
         <div>
-          {surveys.map((survey) => {
-            const status = getStatus(survey);
-            const isExpanded = expandedSurvey === survey._id;
+          {quizzes.map((quiz) => {
+            const isExpanded = expandedQuiz === quiz._id;
+            const publicUrl = getPublicUrl(quiz);
 
             return (
-              <div key={survey._id} className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div key={quiz._id} className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                   <div style={{ flex: 1 }}>
-                    <h3>{survey.title}</h3>
+                    <h3>{quiz.title}</h3>
+                    {quiz.description && (
+                      <p style={{ color: '#666', marginTop: '5px' }}>{quiz.description}</p>
+                    )}
                     <p style={{ color: '#666', marginTop: '5px' }}>
-                      Создан: {new Date(survey.createdAt).toLocaleString('ru-RU')}
-                      {survey.expiresAt && (
-                        <> • Истекает: {new Date(survey.expiresAt).toLocaleString('ru-RU')}</>
+                      Создан: {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('ru-RU') : 'Неизвестно'}
+                      {quiz.questions && (
+                        <> • Вопросов: {quiz.questions.length}</>
                       )}
                     </p>
-                    <div style={{ marginTop: '10px' }}>
-                      <span style={{ 
-                        padding: '5px 10px', 
-                        borderRadius: '4px', 
-                        backgroundColor: status.color + '20',
-                        color: status.color,
-                        fontWeight: 'bold',
-                        fontSize: '14px'
-                      }}>
-                        {status.text}
-                      </span>
-                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
                     <button
-                      onClick={() => setExpandedSurvey(isExpanded ? null : survey._id)}
+                      onClick={() => setExpandedQuiz(isExpanded ? null : quiz._id)}
                       className="btn btn-secondary"
                     >
                       {isExpanded ? 'Скрыть' : 'Показать ссылку'}
                     </button>
-                    {!survey.isClosed && !survey.isExpired && (
-                      <button
-                        onClick={() => handleCloseSurvey(survey._id)}
-                        className="btn btn-secondary"
-                        disabled={closingId === survey._id}
-                        style={{ backgroundColor: '#dc3545' }}
-                      >
-                        {closingId === survey._id ? 'Закрытие...' : 'Закрыть опрос'}
-                      </button>
-                    )}
+                    <Link
+                      to={`/stats?quizId=${quiz._id}`}
+                      className="btn btn-secondary"
+                      style={{ textDecoration: 'none', textAlign: 'center' }}
+                    >
+                      Статистика
+                    </Link>
                   </div>
                 </div>
 
@@ -163,16 +115,16 @@ export default function MySurveys() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '20px', alignItems: 'center' }}>
                       <div>
                         <h4>Ссылка для прохождения:</h4>
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
                           <input
                             type="text"
-                            value={survey.shareUrl}
+                            value={publicUrl}
                             readOnly
-                            style={{ flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            style={{ flex: 1, minWidth: '200px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                           />
                           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             <button
-                              onClick={() => handleCopy(survey.shareUrl)}
+                              onClick={() => handleCopy(publicUrl)}
                               className="btn btn-primary"
                             >
                               Копировать
@@ -180,13 +132,13 @@ export default function MySurveys() {
                             {isMaxWebApp() && (
                               <>
                                 <button
-                                  onClick={() => handleShare(survey)}
+                                  onClick={() => handleShare(quiz)}
                                   className="btn btn-secondary"
                                 >
                                   Поделиться в MAX
                                 </button>
                                 <button
-                                  onClick={() => shareContent(`Опрос: ${survey.title}`, survey.shareUrl)}
+                                  onClick={() => shareContent(`Квиз: ${quiz.title}`, publicUrl)}
                                   className="btn btn-secondary"
                                 >
                                   Поделиться
@@ -196,13 +148,13 @@ export default function MySurveys() {
                           </div>
                         </div>
                         <p style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
-                          Public ID: <code>{survey.publicId}</code>
+                          ID: <code>{quiz._id}</code>
                         </p>
                       </div>
                       <div style={{ textAlign: 'center' }}>
                         <h4>QR-код:</h4>
                         <div style={{ padding: '15px', background: 'white', borderRadius: '8px', display: 'inline-block', marginTop: '10px' }}>
-                          <QRCodeSVG value={survey.shareUrl} size={150} />
+                          <QRCodeSVG value={publicUrl} size={150} />
                         </div>
                       </div>
                     </div>

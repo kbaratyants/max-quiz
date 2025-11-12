@@ -1,41 +1,44 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { api, MySurvey, SurveyStats as SurveyStatsType } from '../api';
+import { Link, useSearchParams } from 'react-router-dom';
+import { api, Quiz, QuizDetailedStats } from '../api';
 
 export default function SurveyStats() {
-  const navigate = useNavigate();
-  const [surveys, setSurveys] = useState<MySurvey[]>([]);
-  const [selectedSurvey, setSelectedSurvey] = useState<SurveyStatsType | null>(null);
+  const [searchParams] = useSearchParams();
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [selectedStats, setSelectedStats] = useState<QuizDetailedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
-    loadSurveys();
+    loadQuizzes();
+    const quizId = searchParams.get('quizId');
+    if (quizId) {
+      loadStats(quizId);
+    }
   }, []);
 
-  const loadSurveys = async () => {
+  const loadQuizzes = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/surveys/mine');
-      setSurveys(response.data);
+      const response = await api.get('/quizzes/my');
+      setQuizzes(response.data);
     } catch (error) {
-      console.error('Ошибка загрузки опросов:', error);
-      alert('Не удалось загрузить список опросов');
+      console.error('Ошибка загрузки квизов:', error);
+      alert('Не удалось загрузить список квизов');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadStats = async (surveyId: string) => {
+  const loadStats = async (quizId: string) => {
     try {
       setLoadingStats(true);
-      const response = await api.get(`/surveys/${surveyId}/stats`);
-      setSelectedSurvey(response.data);
+      const response = await api.get(`/quizzes/my/stats/${quizId}`);
+      setSelectedStats(response.data);
     } catch (error: any) {
       console.error('Ошибка загрузки статистики:', error);
       if (error.response?.status === 403) {
-        alert('У вас нет доступа к статистике этого опроса');
+        alert('У вас нет доступа к статистике этого квиза');
       } else {
         alert('Не удалось загрузить статистику');
       }
@@ -48,13 +51,13 @@ export default function SurveyStats() {
     return <div className="container"><div className="loading">Загрузка...</div></div>;
   }
 
-  if (selectedSurvey) {
+  if (selectedStats) {
     return (
       <div className="container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2>Статистика: {selectedSurvey.survey.title}</h2>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => setSelectedSurvey(null)} className="btn btn-secondary">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+          <h2>Статистика: {selectedStats.title}</h2>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button onClick={() => setSelectedStats(null)} className="btn btn-secondary">
               ← Назад к списку
             </button>
             <Link to="/" className="btn btn-secondary">
@@ -65,45 +68,36 @@ export default function SurveyStats() {
 
         <div className="card">
           <h3>Общая информация</h3>
-          <div style={{ marginTop: '15px' }}>
-            <strong>Всего ответов:</strong> {selectedSurvey.totalResponses}
+          <div style={{ marginTop: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+            <div>
+              <strong>Всего прохождений:</strong> {selectedStats.totalSubmissions}
+            </div>
+            <div>
+              <strong>Средний балл:</strong> {selectedStats.avgScore.toFixed(2)} из {selectedStats.questions.length}
+            </div>
           </div>
         </div>
 
-        {selectedSurvey.totalResponses === 0 ? (
+        {selectedStats.totalSubmissions === 0 ? (
           <div className="card">
-            <p>Пока нет ответов на этот опрос.</p>
+            <p>Пока нет прохождений этого квиза.</p>
           </div>
         ) : (
           <div>
-            {selectedSurvey.questionStats.map((questionStat, index) => {
-              const chartData = questionStat.optionCounts.map(opt => ({
-                name: opt.optionText,
-                value: opt.count,
-                percentage: opt.percentage.toFixed(1),
-              }));
-
+            {selectedStats.questions.map((question, index) => {
               return (
                 <div key={index} className="card">
-                  <h3>Вопрос {questionStat.questionIndex + 1}: {questionStat.questionText}</h3>
-                  <div style={{ marginTop: '20px' }}>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="value" fill="#8884d8" name="Количество ответов" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <h3>Вопрос {index + 1}: {question.question}</h3>
+                  <div style={{ marginTop: '15px', padding: '10px', background: question.correctPercentage >= 70 ? '#d4edda' : question.correctPercentage >= 50 ? '#fff3cd' : '#f8d7da', borderRadius: '4px' }}>
+                    <strong>Правильных ответов:</strong> {question.correctCount} из {question.totalAttempts} ({question.correctPercentage.toFixed(1)}%)
                   </div>
                   <div style={{ marginTop: '20px' }}>
-                    <h4>Детали:</h4>
-                    <ul style={{ listStyle: 'none', padding: 0 }}>
-                      {questionStat.optionCounts.map((opt, optIndex) => (
-                        <li key={optIndex} style={{ marginBottom: '10px', padding: '10px', background: '#f5f5f5', borderRadius: '4px' }}>
-                          <strong>{opt.optionText}:</strong> {opt.count} ответов ({opt.percentage.toFixed(1)}%)
+                    <h4>Варианты ответов:</h4>
+                    <ul style={{ listStyle: 'none', padding: 0, marginTop: '10px' }}>
+                      {question.options.map((opt, optIndex) => (
+                        <li key={optIndex} style={{ marginBottom: '10px', padding: '10px', background: optIndex === question.correctAnswer ? '#d4edda' : '#f5f5f5', borderRadius: '4px', borderLeft: optIndex === question.correctAnswer ? '4px solid #28a745' : 'none' }}>
+                          <strong>{opt}</strong>
+                          {optIndex === question.correctAnswer && <span style={{ color: '#28a745', marginLeft: '10px' }}>✓ Правильный ответ</span>}
                         </li>
                       ))}
                     </ul>
@@ -119,30 +113,33 @@ export default function SurveyStats() {
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Статистика по созданным опросам</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <h2>Статистика по созданным квизам</h2>
         <Link to="/" className="btn btn-secondary">
           ← На главную
         </Link>
       </div>
 
-      {surveys.length === 0 ? (
+      {quizzes.length === 0 ? (
         <div className="card">
-          <p>Вы еще не создали ни одного опроса.</p>
+          <p>Вы еще не создали ни одного квиза.</p>
           <Link to="/create" className="btn btn-primary" style={{ marginTop: '15px', display: 'inline-block' }}>
-            Создать опрос
+            Создать квиз
           </Link>
         </div>
       ) : (
         <div>
-          {surveys.map((survey) => (
-            <div key={survey._id} className="card">
-              <h3>{survey.title}</h3>
+          {quizzes.map((quiz) => (
+            <div key={quiz._id} className="card">
+              <h3>{quiz.title}</h3>
+              {quiz.description && (
+                <p style={{ color: '#666', marginTop: '5px' }}>{quiz.description}</p>
+              )}
               <p style={{ color: '#666', marginTop: '5px' }}>
-                Вопросов: {survey.questionsCount} • Создан: {new Date(survey.createdAt).toLocaleString('ru-RU')}
+                Вопросов: {quiz.questions?.length || 0} • Создан: {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('ru-RU') : 'Неизвестно'}
               </p>
               <button
-                onClick={() => loadStats(survey._id)}
+                onClick={() => loadStats(quiz._id)}
                 className="btn btn-primary"
                 disabled={loadingStats}
                 style={{ marginTop: '15px' }}

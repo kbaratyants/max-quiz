@@ -11,14 +11,21 @@ import * as querystring from 'querystring';
 
 @Injectable()
 export class MaxAuthMiddleware implements CanActivate {
-  private readonly botToken = process.env.MAX_BOT_TOKEN!;
+  private readonly botToken =
+    process.env.MAX_BOT_TOKEN || process.env.BOT_TOKEN;
   private readonly ttlSeconds = 300; // 5 минут
 
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
     const raw = req.header('x-max-init-data');
 
-    if (!raw) throw new UnauthorizedException('Missing init data');
+    if (!raw) {
+      throw new UnauthorizedException('Missing init data');
+    }
+
+    if (!this.botToken) {
+      throw new UnauthorizedException('Bot token not configured');
+    }
 
     const data = this.parseInitData(raw);
     if (!this.checkTtl(data.auth_date)) {

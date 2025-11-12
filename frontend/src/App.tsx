@@ -1,23 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
 import Home from './pages/Home';
 import CreateSurvey from './pages/CreateSurvey';
 import TakeSurvey from './pages/TakeSurvey';
 import MyResponses from './pages/MyResponses';
 import MySurveys from './pages/MySurveys';
 import SurveyStats from './pages/SurveyStats';
-import { initWebApp, isMaxWebApp, getUserInfoFromWebApp } from './utils/webapp';
+import { isMaxWebApp, getUserInfoFromWebApp } from './utils/webapp';
 import { useWebApp } from './hooks/useWebApp';
 import './App.css';
 
 function App() {
-  useEffect(() => {
-    // Инициализируем WebApp при загрузке
-    if (isMaxWebApp()) {
-      initWebApp();
-    }
-  }, []);
-
   return (
     <BrowserRouter>
       <AppContent />

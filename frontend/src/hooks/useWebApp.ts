@@ -1,9 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getWebApp, initWebApp, isMaxWebApp } from '../utils/webapp';
 
 export function useWebApp() {
   const navigate = useNavigate();
+
+  // Создаем стабильную функцию для обработки кнопки "Назад"
+  const handleBack = useCallback(() => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (!isMaxWebApp()) {
@@ -11,31 +20,39 @@ export function useWebApp() {
     }
 
     const webApp = getWebApp();
-    if (!webApp) {
+    if (!webApp || !webApp.BackButton) {
       return;
     }
 
-    // Инициализируем WebApp
-    initWebApp();
-
-    // Настраиваем кнопку "Назад"
-    if (webApp.BackButton) {
-      const handleBack = () => {
-        if (window.history.length > 1) {
-          navigate(-1);
-        } else {
-          navigate('/');
-        }
-      };
-
-      webApp.BackButton.onClick(handleBack);
-      webApp.BackButton.show();
-
-      return () => {
-        webApp.BackButton?.offClick(handleBack);
-        webApp.BackButton?.hide();
-      };
+    // Инициализируем WebApp только один раз
+    try {
+      initWebApp();
+    } catch (error) {
+      console.warn('[MAX Bridge] Ошибка инициализации WebApp:', error);
+      return;
     }
-  }, [navigate]);
+
+    // Настраиваем кнопку "Назад" с обработкой ошибок
+    try {
+      if (typeof webApp.BackButton.onClick === 'function' && typeof webApp.BackButton.show === 'function') {
+        webApp.BackButton.onClick(handleBack);
+        webApp.BackButton.show();
+      }
+    } catch (error) {
+      console.warn('[MAX Bridge] Ошибка настройки BackButton:', error);
+      return;
+    }
+
+    return () => {
+      try {
+        if (webApp.BackButton && typeof webApp.BackButton.offClick === 'function' && typeof webApp.BackButton.hide === 'function') {
+          webApp.BackButton.offClick(handleBack);
+          webApp.BackButton.hide();
+        }
+      } catch (error) {
+        console.warn('[MAX Bridge] Ошибка очистки BackButton:', error);
+      }
+    };
+  }, [handleBack]);
 }
 

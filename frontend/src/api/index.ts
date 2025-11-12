@@ -5,7 +5,7 @@ import { getInitData, isMaxWebApp } from '../utils/webapp';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: `${API_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,54 +30,80 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export interface Survey {
+// Интерфейсы для Quiz (квизов)
+export interface Quiz {
   _id: string;
   title: string;
-  ownerId: string;
+  description?: string;
   questions: {
-    text: string;
+    question: string;
     options: string[];
+    correctAnswer: number;
   }[];
-  createdAt: string;
-  publicId?: string;
-  expiresAt?: string;
-  timeLimitSec?: number;
-  isClosed?: boolean;
+  authorId: string;
+  authorName?: string;
+  uuid: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface MySurvey {
+export interface MyQuiz {
   _id: string;
   title: string;
+  description?: string;
   createdAt: string;
-  publicId: string;
-  shareUrl: string;
-  isClosed: boolean;
-  expiresAt?: string;
-  isExpired?: boolean;
+  publicUrl?: string;
   questionsCount: number;
 }
 
-export interface SurveyStats {
-  survey: {
-    _id: string;
-    title: string;
-  };
-  totalResponses: number;
-  questionStats: {
-    questionIndex: number;
-    questionText: string;
-    optionCounts: {
-      optionIndex: number;
-      optionText: string;
-      count: number;
-      percentage: number;
-    }[];
+export interface QuizStats {
+  quizId: string;
+  title: string;
+  totalSubmissions: number;
+  avgScore: number;
+}
+
+export interface QuizDetailedStats {
+  quizId: string;
+  title: string;
+  totalSubmissions: number;
+  avgScore: number;
+  questions: {
+    question: string;
+    options: string[];
+    correctAnswer: number;
+    totalAttempts: number;
+    correctCount: number;
+    correctPercentage: number;
   }[];
 }
 
-export interface MyResponse {
-  _id: string;
-  surveyId: string;
-  surveyTitle: string;
-  createdAt: string;
+// Интерфейсы для Submission (ответов)
+export interface Submission {
+  score: number;
+  total: number;
+  submissionId: string;
+}
+
+export interface SubmissionSummary {
+  pp: number;
+  submissionId: string;
+  quizId: string;
+  quizTitle: string;
+  score: number;
+  total: number;
+  submittedAt: string;
+}
+
+export interface SubmissionDetail {
+  quizTitle: string;
+  score: number;
+  total: number;
+  submittedAt: string;
+  questions: {
+    question: string;
+    options: string[];
+    selectedAnswer: number;
+    correctAnswer: number;
+  }[];
 }
