@@ -1,36 +1,28 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import 'dotenv/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.enableCors();
 
-  // CORS
-  app.enableCors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
-    credentials: true,
-  });
-
-  // Validation
-  app.useGlobalPipes(new ValidationPipe());
-
-  // Swagger
   const config = new DocumentBuilder()
     .setTitle('MAX Quiz API')
-    .setDescription('API для создания и прохождения опросов/квизов')
+    .setDescription('API для создания, прохождения и анализа квизов')
     .setVersion('1.0')
-    .addTag('surveys', 'Опросы')
-    .addTag('responses', 'Ответы')
+    .addTag('quizzes', 'Создание и просмотр квизов')
+    .addTag('submissions', 'Прохождение квизов и ответы пользователей')
+    .addTag('analytics', 'Аналитика и статистика по квизам')
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`🚀 Backend запущен на http://localhost:${port}`);
-  console.log(`📚 Swagger доступен на http://localhost:${port}/docs`);
+  await app.listen(process.env.PORT || 3000);
+  console.log(`🚀 Server running on port ${process.env.PORT || 3000}`);
 }
-
 bootstrap();
-
