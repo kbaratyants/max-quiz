@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getOrCreateClientId, getOrCreateUserId } from '../utils/ids';
+import { getInitData, isMaxWebApp } from '../utils/webapp';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -10,13 +11,21 @@ export const api = axios.create({
   },
 });
 
-// Добавляем userId и clientId в заголовки для всех запросов
+// Добавляем userId, clientId и initData (из MAX) в заголовки для всех запросов
 api.interceptors.request.use((config) => {
   const userId = getOrCreateUserId();
   const clientId = getOrCreateClientId();
   
   config.headers['x-user-id'] = userId;
   config.headers['x-client-id'] = clientId;
+  
+  // Если приложение запущено в MAX, отправляем initData для валидации на бэкенде
+  if (isMaxWebApp()) {
+    const initData = getInitData();
+    if (initData) {
+      config.headers['x-max-init-data'] = initData;
+    }
+  }
   
   return config;
 });

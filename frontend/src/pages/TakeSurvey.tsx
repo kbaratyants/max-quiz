@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
+import { openCodeReader, hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection, isMaxWebApp } from '../utils/webapp-helpers';
+import { isMaxWebApp as checkMaxWebApp } from '../utils/webapp';
 
 interface Survey {
   _id: string;
@@ -24,18 +26,27 @@ export default function TakeSurvey() {
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isTimeUp, setIsTimeUp] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (paramPublicId) {
       loadSurveyByPublicId(paramPublicId);
     }
+    
+    // Включаем защиту от скриншотов при прохождении опроса в MAX
+    if (checkMaxWebApp() && survey) {
+      enableScreenCaptureProtection();
+      return () => {
+        disableScreenCaptureProtection();
+      };
+    }
+    
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
     };
-  }, [paramPublicId]);
+  }, [paramPublicId, survey]);
 
   useEffect(() => {
     if (timeLeft !== null && timeLeft > 0 && !isTimeUp) {
@@ -97,16 +108,52 @@ export default function TakeSurvey() {
 
   const handleAnswer = (questionIndex: number, optionIndex: number) => {
     if (isTimeUp) return;
+    hapticFeedback('selection');
     const newAnswers = [...answers];
     newAnswers[questionIndex] = optionIndex;
     setAnswers(newAnswers);
+  };
+  
+  const handleScanQR = async () => {
+    try {
+      const qrResult = await openCodeReader(true);
+      
+      if (!qrResult) {
+        alert('QR код не распознан');
+        return;
+      }
+      
+      // Извлекаем publicId из URL если это ссылка
+      const match = qrResult.match(/survey\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        setPublicId(match[1]);
+        await loadSurveyByPublicId(match[1]);
+      } else {
+        // Пробуем использовать как publicId напрямую
+        setPublicId(qrResult);
+        await loadSurveyByPublicId(qrResult);
+      }
+    } catch (error: any) {
+      console.error('Ошибка сканирования QR:', error);
+      
+      // Показываем понятное сообщение пользователю
+      if (error.message === 'QR code reader not available') {
+        // Не показываем ошибку, если сканер недоступен (не в MAX)
+        return;
+      } else if (error.message === 'Сканирование отменено') {
+        // Не показываем ошибку, если пользователь просто отменил
+        return;
+      } else {
+        alert(error.message || 'Не удалось отсканировать QR-код');
+      }
+    }
   };
 
   const handleAutoSubmit = async () => {
     if (isTimeUp || submitting || !survey) return;
     
     // Отправляем то, что уже заполнено
-    const filledAnswers = answers.map((a, idx) => a === -1 ? 0 : a);
+    const filledAnswers = answers.map((a) => a === -1 ? 0 : a);
     
     setSubmitting(true);
     try {
@@ -134,19 +181,24 @@ export default function TakeSurvey() {
     }
 
     if (answers.some(a => a === -1)) {
+      hapticFeedback('notification', 'error');
       alert('Ответьте на все вопросы');
       return;
     }
 
     setSubmitting(true);
+    hapticFeedback('impact', 'medium');
     try {
+      if (!survey) return;
       const response = await api.post(`/surveys/${survey._id}/responses`, { answers });
       setSubmitted(true);
+      hapticFeedback('notification', 'success');
       if (response.data.clientId) {
         localStorage.setItem('max-quiz-client-id', response.data.clientId);
       }
     } catch (error: any) {
       console.error('Ошибка отправки ответов:', error);
+      hapticFeedback('notification', 'error');
       if (error.response?.status === 410) {
         setError('Опрос закрыт или срок его действия истёк');
       } else {
@@ -232,10 +284,15 @@ export default function TakeSurvey() {
               }}
             />
           </div>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '15px', flexWrap: 'wrap' }}>
             <button onClick={loadSurvey} className="btn btn-primary" disabled={loading}>
               {loading ? 'Загрузка...' : 'Загрузить опрос'}
             </button>
+            {isMaxWebApp() && (
+              <button onClick={handleScanQR} className="btn btn-secondary">
+                📷 Сканировать QR
+              </button>
+            )}
             <button onClick={() => navigate('/')} className="btn btn-secondary">
               Назад
             </button>

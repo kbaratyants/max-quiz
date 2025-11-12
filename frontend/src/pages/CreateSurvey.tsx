@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../api';
+import { copyToClipboard, shareContent, shareMaxContent, hapticFeedback, isMaxWebApp } from '../utils/webapp-helpers';
 
 interface Question {
   text: string;
@@ -59,9 +60,20 @@ export default function CreateSurvey() {
     setQuestions(updated);
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = async (text: string) => {
+    await copyToClipboard(text);
     alert('Ссылка скопирована в буфер обмена!');
+  };
+  
+  const handleShare = (text: string, link: string) => {
+    if (shareMaxContent(text, link)) {
+      return;
+    }
+    if (shareContent(text, link)) {
+      return;
+    }
+    // Fallback на копирование
+    handleCopy(link);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,6 +128,7 @@ export default function CreateSurvey() {
     } finally {
       setLoading(false);
     }
+    hapticFeedback('notification', 'success');
   };
 
   if (createdSurvey) {
@@ -135,11 +148,27 @@ export default function CreateSurvey() {
                   style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '4px', minWidth: '300px' }}
                 />
                 <button
-                  onClick={() => copyToClipboard(createdSurvey.shareUrl)}
+                  onClick={() => handleCopy(createdSurvey.shareUrl)}
                   className="btn btn-primary"
                 >
                   Копировать
                 </button>
+                {isMaxWebApp() && (
+                  <>
+                    <button
+                      onClick={() => handleShare(`Опрос: ${createdSurvey.shareUrl}`, createdSurvey.shareUrl)}
+                      className="btn btn-secondary"
+                    >
+                      Поделиться в MAX
+                    </button>
+                    <button
+                      onClick={() => shareContent(`Опрос: ${createdSurvey.shareUrl}`, createdSurvey.shareUrl)}
+                      className="btn btn-secondary"
+                    >
+                      Поделиться
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
