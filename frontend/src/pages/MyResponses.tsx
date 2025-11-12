@@ -1,27 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api, SubmissionSummary } from '../api';
+import { useToastContext } from '../context/ToastContext';
 
 export default function MyResponses() {
+  const toast = useToastContext();
   const [submissions, setSubmissions] = useState<SubmissionSummary[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const loadingRef = useRef(false);
+  const toastRef = useRef(toast);
+  
+  // Обновляем ref при изменении toast
   useEffect(() => {
-    loadSubmissions();
-  }, []);
+    toastRef.current = toast;
+  }, [toast]);
 
-  const loadSubmissions = async () => {
+  const loadSubmissions = useCallback(async () => {
+    // Защита от повторных запросов
+    if (loadingRef.current) {
+      return;
+    }
+    
+    loadingRef.current = true;
     try {
       setLoading(true);
       const response = await api.get('/submissions/user/me/summary');
       setSubmissions(response.data);
     } catch (error) {
       console.error('Ошибка загрузки прохождений:', error);
-      alert('Не удалось загрузить список пройденных квизов');
+      toastRef.current.error('Не удалось загрузить список пройденных квизов');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, [loadSubmissions]);
 
   if (loading) {
     return <div className="container"><div className="loading">Загрузка...</div></div>;

@@ -3,10 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, Quiz, Submission } from '../api';
 import { openCodeReader, hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection, isMaxWebApp } from '../utils/webapp-helpers';
 import { isMaxWebApp as checkMaxWebApp } from '../utils/webapp';
+import { useToastContext } from '../context/ToastContext';
 
 export default function TakeSurvey() {
   const navigate = useNavigate();
   const { publicId: paramPublicId } = useParams<{ publicId?: string }>();
+  const toast = useToastContext();
   const [quizId, setQuizId] = useState(paramPublicId || '');
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
@@ -16,12 +18,21 @@ export default function TakeSurvey() {
   const [submissionResult, setSubmissionResult] = useState<Submission | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadingQuizRef = useRef(false);
+  const currentQuizIdRef = useRef<string | null>(null);
 
   const loadQuizById = useCallback(async (id: string) => {
     if (!id || id.trim() === '') {
       return;
     }
+
+    // Защита от повторных запросов для того же ID
+    if (loadingQuizRef.current && currentQuizIdRef.current === id) {
+      return;
+    }
     
+    loadingQuizRef.current = true;
+    currentQuizIdRef.current = id;
     setLoading(true);
     setError(null);
     try {
@@ -41,6 +52,7 @@ export default function TakeSurvey() {
       }
     } finally {
       setLoading(false);
+      loadingQuizRef.current = false;
     }
   }, []);
 
@@ -72,7 +84,7 @@ export default function TakeSurvey() {
 
   const loadQuiz = async () => {
     if (!quizId.trim()) {
-      alert('Введите ID квиза');
+      toast.warning('Введите ID квиза');
       return;
     }
     await loadQuizById(quizId);
@@ -90,7 +102,7 @@ export default function TakeSurvey() {
       const qrResult = await openCodeReader(true);
       
       if (!qrResult) {
-        alert('QR код не распознан');
+        toast.error('QR код не распознан');
         return;
       }
       
@@ -115,7 +127,7 @@ export default function TakeSurvey() {
         // Не показываем ошибку, если пользователь просто отменил
         return;
       } else {
-        alert(error.message || 'Не удалось отсканировать QR-код');
+        toast.error(error.message || 'Не удалось отсканировать QR-код');
       }
     }
   };
@@ -123,7 +135,7 @@ export default function TakeSurvey() {
   const handleSubmit = async () => {
     if (answers.some(a => a === -1)) {
       hapticFeedback('notification', 'error');
-      alert('Ответьте на все вопросы');
+      toast.warning('Ответьте на все вопросы');
       return;
     }
 
@@ -138,7 +150,7 @@ export default function TakeSurvey() {
     } catch (error: any) {
       console.error('Ошибка отправки ответов:', error);
       hapticFeedback('notification', 'error');
-      alert('Не удалось отправить ответы');
+      toast.error('Не удалось отправить ответы');
     } finally {
       setSubmitting(false);
     }

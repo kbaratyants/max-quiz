@@ -1,36 +1,51 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, Quiz, QuizDetailedStats } from '../api';
+import { useToastContext } from '../context/ToastContext';
 
 export default function SurveyStats() {
+  const toast = useToastContext();
   const [searchParams] = useSearchParams();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [selectedStats, setSelectedStats] = useState<QuizDetailedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingStats, setLoadingStats] = useState(false);
-
+  const loadingRef = useRef(false);
+  const loadingStatsRef = useRef(false);
+  const toastRef = useRef(toast);
+  
+  // Обновляем ref при изменении toast
   useEffect(() => {
-    loadQuizzes();
-    const quizId = searchParams.get('quizId');
-    if (quizId) {
-      loadStats(quizId);
-    }
-  }, []);
+    toastRef.current = toast;
+  }, [toast]);
 
-  const loadQuizzes = async () => {
+  const loadQuizzes = useCallback(async () => {
+    // Защита от повторных запросов
+    if (loadingRef.current) {
+      return;
+    }
+    
+    loadingRef.current = true;
     try {
       setLoading(true);
       const response = await api.get('/quizzes/my');
       setQuizzes(response.data);
     } catch (error) {
       console.error('Ошибка загрузки квизов:', error);
-      alert('Не удалось загрузить список квизов');
+      toastRef.current.error('Не удалось загрузить список квизов');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  };
+  }, []);
 
-  const loadStats = async (quizId: string) => {
+  const loadStats = useCallback(async (quizId: string) => {
+    // Защита от повторных запросов
+    if (loadingStatsRef.current) {
+      return;
+    }
+    
+    loadingStatsRef.current = true;
     try {
       setLoadingStats(true);
       const response = await api.get(`/quizzes/my/stats/${quizId}`);
@@ -38,14 +53,23 @@ export default function SurveyStats() {
     } catch (error: any) {
       console.error('Ошибка загрузки статистики:', error);
       if (error.response?.status === 403) {
-        alert('У вас нет доступа к статистике этого квиза');
+        toastRef.current.error('У вас нет доступа к статистике этого квиза');
       } else {
-        alert('Не удалось загрузить статистику');
+        toastRef.current.error('Не удалось загрузить статистику');
       }
     } finally {
       setLoadingStats(false);
+      loadingStatsRef.current = false;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadQuizzes();
+    const quizId = searchParams.get('quizId');
+    if (quizId) {
+      loadStats(quizId);
+    }
+  }, [loadQuizzes, loadStats, searchParams]);
 
   if (loading) {
     return <div className="container"><div className="loading">Загрузка...</div></div>;

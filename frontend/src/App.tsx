@@ -5,15 +5,20 @@ import TakeSurvey from './pages/TakeSurvey';
 import MyResponses from './pages/MyResponses';
 import MySurveys from './pages/MySurveys';
 import SurveyStats from './pages/SurveyStats';
+import Profile from './pages/Profile';
+import BottomNavigation from './components/BottomNavigation';
+import { ToastProvider } from './context/ToastContext';
 import { isMaxWebApp, getUserInfoFromWebApp } from './utils/webapp';
 import { useWebApp } from './hooks/useWebApp';
 import './App.css';
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 
@@ -28,8 +33,29 @@ function AppContent() {
       <header className="header">
         <h1>MAX Quiz</h1>
         {isInMax && userInfo && (
-          <div style={{ fontSize: '14px', color: '#666', marginTop: '5px' }}>
-            {userInfo.firstName} {userInfo.lastName}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '10px', 
+            fontSize: '14px', 
+            color: '#666', 
+            marginTop: '5px' 
+          }}>
+            {userInfo.photoUrl && (
+              <img 
+                src={userInfo.photoUrl} 
+                alt="Avatar" 
+                style={{ 
+                  width: '32px', 
+                  height: '32px', 
+                  borderRadius: '50%',
+                  objectFit: 'cover'
+                }} 
+              />
+            )}
+            <span>
+              {userInfo.firstName} {userInfo.lastName}
+            </span>
           </div>
         )}
       </header>
@@ -42,9 +68,11 @@ function AppContent() {
           <Route path="/my-responses" element={<MyResponses />} />
           <Route path="/my-surveys" element={<MySurveys />} />
           <Route path="/stats" element={<SurveyStats />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <BottomNavigation />
     </div>
   );
 }

@@ -1,65 +1,132 @@
-import { Link } from 'react-router-dom';
-import { isMaxWebApp, getUserInfoFromWebApp } from '../utils/webapp';
+import { useNavigate } from 'react-router-dom';
+import { openCodeReader, isMaxWebApp as checkMaxWebApp } from '../utils/webapp-helpers';
+import { useState } from 'react';
 
 export default function Home() {
-  const isInMax = isMaxWebApp();
-  const userInfo = getUserInfoFromWebApp();
-  const userName = userInfo 
-    ? `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim() || userInfo.username || 'Пользователь'
-    : null;
+  const navigate = useNavigate();
+  const [qrDebug, setQrDebug] = useState<string>('');
+
+  const handleScanQR = async () => {
+    setQrDebug('Инициализация сканирования...');
+    try {
+      if (!checkMaxWebApp()) {
+        setQrDebug('❌ QR сканер недоступен (не в MAX WebApp)');
+        return;
+      }
+
+      setQrDebug('Открываем камеру...');
+      const qrResult = await openCodeReader(true);
+      
+      if (!qrResult || !qrResult.trim()) {
+        setQrDebug('❌ QR код не распознан или пуст');
+        return;
+      }
+
+      setQrDebug(`✅ Распознано: ${qrResult}`);
+      
+      // Извлекаем quizId из URL если это ссылка
+      const match = qrResult.match(/(?:survey|quiz|quizzes)\/([a-zA-Z0-9_-]+)/i);
+      if (match) {
+        const quizId = match[1];
+        setQrDebug(`✅ Извлечен ID: ${quizId}`);
+        navigate(`/survey/${quizId}`);
+      } else if (/^[a-zA-Z0-9_-]+$/.test(qrResult.trim())) {
+        // Прямой ID
+        setQrDebug(`✅ Используем как ID: ${qrResult.trim()}`);
+        navigate(`/survey/${qrResult.trim()}`);
+      } else {
+        setQrDebug(`⚠️ Не удалось распознать ID из: ${qrResult}`);
+      }
+    } catch (error: any) {
+      console.error('Ошибка сканирования QR:', error);
+      setQrDebug(`❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`);
+      
+      if (error.message === 'QR code reader not available') {
+        setQrDebug('❌ QR сканер недоступен (не в MAX WebApp)');
+      } else if (error.message === 'Сканирование отменено') {
+        setQrDebug('⚠️ Сканирование отменено пользователем');
+      }
+    }
+  };
 
   return (
     <div className="container">
-      <h2>Выберите действие</h2>
+      <h2>MAX Quiz</h2>
       
-      {/* Минимальная дебаг-информация */}
-      <div style={{ 
-        marginBottom: '20px', 
-        padding: '12px', 
-        backgroundColor: isInMax ? '#e8f5e9' : '#fff3cd', 
-        borderRadius: '8px',
-        fontSize: '14px',
-        border: `1px solid ${isInMax ? '#4caf50' : '#ffc107'}`
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-          MAX WebApp: {isInMax ? '✅ Инициализировано' : '❌ Не инициализировано'}
-        </div>
-        {userName && (
-          <div style={{ color: '#666' }}>
-            Пользователь: {userName}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '30px' }}>
+        {/* Кнопка: Пройти квиз */}
+        <button
+          onClick={() => navigate('/take')}
+          className="btn btn-primary"
+          style={{ 
+            padding: '30px', 
+            fontSize: '18px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px'
+          }}
+        >
+          <div style={{ fontSize: '48px' }}>✏️</div>
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Пройти квиз</div>
+            <div style={{ fontSize: '14px', opacity: 0.8 }}>По ID или QR-коду</div>
+          </div>
+        </button>
+
+        {/* Кнопка: Сканировать QR (только в MAX) */}
+        {checkMaxWebApp() && (
+          <button
+            onClick={handleScanQR}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '20px', 
+              fontSize: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            <div style={{ fontSize: '36px' }}>📷</div>
+            <div>Сканировать QR-код</div>
+          </button>
+        )}
+
+        {/* Дебаг QR */}
+        {qrDebug && (
+          <div className="card" style={{ 
+            padding: '15px', 
+            backgroundColor: '#f5f5f5',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>QR Debug:</div>
+            <div>{qrDebug}</div>
           </div>
         )}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '30px' }}>
-        <Link to="/create" className="card" style={{ textDecoration: 'none', color: 'inherit', textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>➕</div>
-          <h3>Создать квиз</h3>
-          <p style={{ color: '#666', marginTop: '10px' }}>Создать новый квиз с вопросами и правильными ответами</p>
-        </Link>
 
-        <Link to="/my-surveys" className="card" style={{ textDecoration: 'none', color: 'inherit', textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📝</div>
-          <h3>Мои созданные квизы</h3>
-          <p style={{ color: '#666', marginTop: '10px' }}>Посмотреть список квизов, которые вы создали</p>
-        </Link>
-
-        <Link to="/my-responses" className="card" style={{ textDecoration: 'none', color: 'inherit', textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📋</div>
-          <h3>Мои пройденные квизы</h3>
-          <p style={{ color: '#666', marginTop: '10px' }}>Посмотреть список квизов, которые вы прошли</p>
-        </Link>
-
-        <Link to="/take" className="card" style={{ textDecoration: 'none', color: 'inherit', textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>✏️</div>
-          <h3>Пройти квиз по ID</h3>
-          <p style={{ color: '#666', marginTop: '10px' }}>Введите ID квиза для прохождения</p>
-        </Link>
-
-        <Link to="/stats" className="card" style={{ textDecoration: 'none', color: 'inherit', textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>📊</div>
-          <h3>Статистика по созданным</h3>
-          <p style={{ color: '#666', marginTop: '10px' }}>Посмотреть статистику по квизам, которые вы создали</p>
-        </Link>
+        {/* Кнопка: Создать квиз */}
+        <button
+          onClick={() => navigate('/create')}
+          className="btn btn-success"
+          style={{ 
+            padding: '30px', 
+            fontSize: '18px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px'
+          }}
+        >
+          <div style={{ fontSize: '48px' }}>➕</div>
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Создать квиз</div>
+            <div style={{ fontSize: '14px', opacity: 0.8 }}>Создать новый квиз с вопросами</div>
+          </div>
+        </button>
       </div>
     </div>
   );

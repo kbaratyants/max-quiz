@@ -1,34 +1,50 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, Quiz } from '../api';
 import { copyToClipboard, shareContent, shareMaxContent, isMaxWebApp } from '../utils/webapp-helpers';
+import { useToastContext } from '../context/ToastContext';
 
 export default function MySurveys() {
+  const toast = useToastContext();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
-
+  const loadingRef = useRef(false);
+  const toastRef = useRef(toast);
+  
+  // Обновляем ref при изменении toast
   useEffect(() => {
-    loadQuizzes();
-  }, []);
+    toastRef.current = toast;
+  }, [toast]);
 
-  const loadQuizzes = async () => {
+  const loadQuizzes = useCallback(async () => {
+    // Защита от повторных запросов
+    if (loadingRef.current) {
+      return;
+    }
+    
+    loadingRef.current = true;
     try {
       setLoading(true);
       const response = await api.get('/quizzes/my');
       setQuizzes(response.data);
     } catch (error) {
       console.error('Ошибка загрузки квизов:', error);
-      alert('Не удалось загрузить список квизов');
+      toastRef.current.error('Не удалось загрузить список квизов');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadQuizzes();
+  }, [loadQuizzes]);
 
   const handleCopy = async (text: string) => {
     await copyToClipboard(text);
-    alert('Ссылка скопирована в буфер обмена!');
+    toast.success('Ссылка скопирована в буфер обмена!');
   };
   
   const handleShare = (quiz: Quiz) => {

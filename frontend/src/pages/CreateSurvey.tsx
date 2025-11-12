@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../api';
 import { copyToClipboard, shareContent, shareMaxContent, hapticFeedback, isMaxWebApp } from '../utils/webapp-helpers';
+import { useToastContext } from '../context/ToastContext';
 
 interface Question {
   question: string;
@@ -17,6 +18,7 @@ interface CreatedQuiz {
 
 export default function CreateSurvey() {
   const navigate = useNavigate();
+  const toast = useToastContext();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState<Question[]>([
@@ -54,7 +56,7 @@ export default function CreateSurvey() {
 
   const handleCopy = async (text: string) => {
     await copyToClipboard(text);
-    alert('Ссылка скопирована в буфер обмена!');
+    toast.success('Ссылка скопирована в буфер обмена!');
   };
   
   const handleShare = (text: string, link: string) => {
@@ -73,26 +75,26 @@ export default function CreateSurvey() {
     
     // Валидация
     if (!title.trim()) {
-      alert('Введите название опроса');
+      toast.warning('Введите название квиза');
       return;
     }
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.question.trim()) {
-        alert(`Вопрос ${i + 1}: введите текст вопроса`);
+        toast.warning(`Вопрос ${i + 1}: введите текст вопроса`);
         return;
       }
       if (q.options.length < 2) {
-        alert(`Вопрос ${i + 1}: должно быть минимум 2 варианта ответа`);
+        toast.warning(`Вопрос ${i + 1}: должно быть минимум 2 варианта ответа`);
         return;
       }
       if (q.options.some(opt => !opt.trim())) {
-        alert(`Вопрос ${i + 1}: все варианты ответов должны быть заполнены`);
+        toast.warning(`Вопрос ${i + 1}: все варианты ответов должны быть заполнены`);
         return;
       }
       if (q.correctAnswer < 0 || q.correctAnswer >= q.options.length) {
-        alert(`Вопрос ${i + 1}: выберите правильный ответ`);
+        toast.warning(`Вопрос ${i + 1}: выберите правильный ответ`);
         return;
       }
     }
@@ -116,7 +118,7 @@ export default function CreateSurvey() {
       }
     } catch (error) {
       console.error('Ошибка создания квиза:', error);
-      alert('Не удалось создать квиз');
+      toast.error('Не удалось создать квиз');
     } finally {
       setLoading(false);
     }
