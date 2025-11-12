@@ -1,43 +1,41 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  UnauthorizedException,
-  ForbiddenException,
-} from '@nestjs/common';
-import { Request } from 'express';
+import { Injectable } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
 import * as crypto from 'crypto';
 import * as querystring from 'querystring';
 
 @Injectable()
-export class MaxAuthMiddleware implements CanActivate {
-  private readonly botToken =
-    process.env.MAX_BOT_TOKEN || process.env.BOT_TOKEN;
+export class MaxAuthMiddleware {
+  private readonly botToken = process.env.MAX_BOT_TOKEN || process.env.BOT_TOKEN;
   private readonly ttlSeconds = 300; // 5 минут
 
-  canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest<Request>();
+  use(req: Request, res: Response, next: NextFunction) {
     const raw = req.header('x-max-init-data');
-
     if (!raw) {
-      throw new UnauthorizedException('Missing init data');
+      return res.status(401).json({ message: 'Missing init data' });
     }
 
     if (!this.botToken) {
-      throw new UnauthorizedException('Bot token not configured');
+      return res.status(500).json({ message: 'Bot token not configured' });
     }
 
-    const data = this.parseInitData(raw);
-    if (!this.checkTtl(data.auth_date)) {
-      throw new ForbiddenException('Init data expired');
-    }
+    try {
+      const data = this.parseInitData(raw);
 
-    if (!this.verify(data)) {
-      throw new UnauthorizedException('Invalid signature');
-    }
+      if (!this.checkTtl(data.auth_date)) {
+        return res.status(403).json({ message: 'Init data expired' });
+      }
 
-    (req as any).user = data.user;
-    return true;
+      if (!this.verify(data)) {
+        return res.status(401).json({ message: 'Invalid signature' });
+      }
+
+      // Сохраняем пользователя в req
+      (req as any).user = data.user;
+
+      next();
+    } catch (err) {
+      return res.status(400).json({ message: 'Invalid init data format' });
+    }
   }
 
   private parseInitData(raw: string): any {
