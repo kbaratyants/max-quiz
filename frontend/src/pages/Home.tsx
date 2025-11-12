@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { openCodeReader, isMaxWebApp as checkMaxWebApp } from '../utils/webapp-helpers';
+import { openCodeReader, isMaxWebApp as checkMaxWebApp, extractQuizIdFromQR } from '../utils/webapp-helpers';
 import { useState } from 'react';
 
 export default function Home() {
@@ -17,23 +17,13 @@ export default function Home() {
       setQrDebug('Открываем камеру...');
       const qrResult = await openCodeReader(true);
       
-      if (!qrResult || !qrResult.trim()) {
-        setQrDebug('❌ QR код не распознан или пуст');
-        return;
-      }
-
       setQrDebug(`✅ Распознано: ${qrResult}`);
       
-      // Извлекаем quizId из URL если это ссылка
-      const match = qrResult.match(/(?:survey|quiz|quizzes)\/([a-zA-Z0-9_-]+)/i);
-      if (match) {
-        const quizId = match[1];
+      // Извлекаем quizId используя общую функцию
+      const quizId = extractQuizIdFromQR(qrResult);
+      if (quizId) {
         setQrDebug(`✅ Извлечен ID: ${quizId}`);
         navigate(`/survey/${quizId}`);
-      } else if (/^[a-zA-Z0-9_-]+$/.test(qrResult.trim())) {
-        // Прямой ID
-        setQrDebug(`✅ Используем как ID: ${qrResult.trim()}`);
-        navigate(`/survey/${qrResult.trim()}`);
       } else {
         setQrDebug(`⚠️ Не удалось распознать ID из: ${qrResult}`);
       }

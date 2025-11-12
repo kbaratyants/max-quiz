@@ -67,6 +67,33 @@ export function shareMaxContent(text: string, link: string) {
   return false;
 }
 
+/**
+ * Извлекает quizId из QR-кода (может быть URL или прямой ID)
+ * @param qrResult - Результат сканирования QR-кода
+ * @returns quizId или null, если не удалось распознать
+ */
+export function extractQuizIdFromQR(qrResult: string): string | null {
+  if (!qrResult || !qrResult.trim()) {
+    return null;
+  }
+
+  const trimmed = qrResult.trim();
+
+  // Извлекаем quizId из URL если это ссылка
+  // Поддерживаем разные форматы: /survey/, /quiz/, /quizzes/
+  const match = trimmed.match(/(?:survey|quiz|quizzes)\/([a-zA-Z0-9_-]+)/i);
+  if (match) {
+    return match[1];
+  }
+
+  // Прямой ID - проверяем формат перед использованием
+  if (/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+}
+
 export function openCodeReader(fileSelect: boolean = true): Promise<string> {
   const webApp = getWebApp();
   

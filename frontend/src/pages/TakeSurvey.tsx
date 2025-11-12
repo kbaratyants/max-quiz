@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, Quiz, Submission } from '../api';
-import { openCodeReader, hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection, isMaxWebApp } from '../utils/webapp-helpers';
+import { openCodeReader, hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection, isMaxWebApp, extractQuizIdFromQR } from '../utils/webapp-helpers';
 import { isMaxWebApp as checkMaxWebApp } from '../utils/webapp';
 import { useToastContext } from '../context/ToastContext';
 
@@ -99,35 +99,35 @@ export default function TakeSurvey() {
   
   const handleScanQR = async () => {
     try {
-      const qrResult = await openCodeReader(true);
-      
-      if (!qrResult) {
-        toast.error('QR код не распознан');
+      if (!checkMaxWebApp()) {
+        toast.error('QR сканер недоступен (не в MAX WebApp)');
         return;
       }
+
+      const qrResult = await openCodeReader(true);
       
-      // Извлекаем quizId из URL если это ссылка
-      const match = qrResult.match(/quizzes\/([a-zA-Z0-9_-]+)/);
-      if (match) {
-        setQuizId(match[1]);
-        await loadQuizById(match[1]);
+      // Извлекаем quizId используя общую функцию
+      const quizId = extractQuizIdFromQR(qrResult);
+      if (quizId) {
+        setQuizId(quizId);
+        await loadQuizById(quizId);
       } else {
-        // Пробуем использовать как quizId напрямую
-        setQuizId(qrResult);
-        await loadQuizById(qrResult);
+        toast.error(`Не удалось распознать ID из QR-кода: ${qrResult}`);
       }
     } catch (error: any) {
       console.error('Ошибка сканирования QR:', error);
       
       // Показываем понятное сообщение пользователю
-      if (error.message === 'QR code reader not available') {
+      if (error?.message?.includes('QR code reader not available')) {
         // Не показываем ошибку, если сканер недоступен (не в MAX)
         return;
-      } else if (error.message === 'Сканирование отменено') {
+      } else if (error?.message?.includes('Сканирование отменено')) {
         // Не показываем ошибку, если пользователь просто отменил
         return;
       } else {
-        toast.error(error.message || 'Не удалось отсканировать QR-код');
+        // Выводим детальную информацию об ошибке
+        const errorMessage = error?.message || 'Не удалось отсканировать QR-код';
+        toast.error(errorMessage);
       }
     }
   };
