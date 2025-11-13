@@ -25,11 +25,18 @@ import { Request } from 'express';
 export class SubmissionsController {
   constructor(private submissionsService: SubmissionsService) {}
 
+  // ==============================
+  // СОЗДАНИЕ (ОТПРАВКА) САБМИШЕНА
+  // ==============================
   @Patch('quiz/:id/submit')
   @UsePipes(new ValidationPipe({ whitelist: true }))
   @ApiParam({ name: 'id', description: 'ID квиза', example: '64a1b2c3d4e5f67890123456' })
   @ApiBody({ type: SubmitQuizDto, description: 'Массив выбранных ответов' })
-  @ApiResponse({ status: 201, description: 'Сабмишен успешно создан', type: SubmissionDetailDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Сабмишен успешно создан',
+    type: SubmissionDetailDto,
+  })
   async submitQuiz(
     @Param('id') quizId: string,
     @Body() dto: SubmitQuizDto,
@@ -39,16 +46,34 @@ export class SubmissionsController {
     return this.submissionsService.submitQuiz(quizId, user, dto.answers);
   }
 
+  // ==============================
+  // СВОДКА ВСЕХ САБМИШЕНОВ ПОЛЬЗОВАТЕЛЯ
+  // ==============================
   @Get('user/me/summary')
-  @ApiResponse({ status: 200, description: 'Сводка всех сабмишенов пользователя', type: [SubmissionDetailDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'Сводка всех сабмишенов пользователя',
+    type: [SubmissionDetailDto],
+  })
   async getUserSubmissionsSummary(@Req() req: Request) {
     const user = (req as any).user || { id: 'test-author' };
     return this.submissionsService.getUserSubmissionsSummary(user.id);
   }
 
+  // ==============================
+  // ДЕТАЛИ ОДНОГО САБМИШЕНА (ПОЛЬЗОВАТЕЛЬ)
+  // ==============================
   @Get('user/me/:id')
-  @ApiParam({ name: 'id', description: 'ID сабмишена', example: '64a1b2c3d4e5f67890123456' })
-  @ApiResponse({ status: 200, description: 'Детали сабмишена', type: SubmissionDetailDto })
+  @ApiParam({
+    name: 'id',
+    description: 'ID сабмишена',
+    example: '64a1b2c3d4e5f67890123456',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Детали сабмишена',
+    type: SubmissionDetailDto,
+  })
   async getSubmissionDetail(
     @Param('id') submissionId: string,
     @Req() req: Request,
@@ -57,6 +82,9 @@ export class SubmissionsController {
     return this.submissionsService.getSubmissionDetail(submissionId, user.id);
   }
 
+  // ==============================
+  // РЕЗУЛЬТАТЫ КВИЗА (ДЛЯ АВТОРА ИЛИ АДМИНА)
+  // ==============================
   @Get('quiz/:id/results')
   @ApiOperation({ summary: 'Получить результаты квиза' })
   @ApiParam({
@@ -66,7 +94,8 @@ export class SubmissionsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Список результатов по квизу. Пустой массив, если никто не проходил.',
+    description:
+      'Список результатов по квизу. Пустой массив, если никто не проходил.',
     schema: {
       example: [
         {

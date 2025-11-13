@@ -19,6 +19,9 @@ import { Request } from 'express';
 export class QuizzesController {
   constructor(private readonly quizzesService: QuizzesService) {}
 
+  // ==============================
+  // СОЗДАНИЕ КВИЗА
+  // ==============================
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true }))
   @ApiBody({ type: CreateQuizDto, description: 'Данные для создания квиза' })
@@ -48,7 +51,9 @@ export class QuizzesController {
     };
   }
 
-  // ВАЖНО: Специфичные роуты должны быть ПЕРЕД параметризованными
+  // ==============================
+  // СТАТИСТИКА ПО КОНКРЕТНОМУ КВИЗУ (ПОЛЬЗОВАТЕЛЬ)
+  // ==============================
   @Get('my/stats/:id')
   @ApiParam({ name: 'id', description: 'ID квиза', example: '64a1b2c3d4e5f67890123456' })
   @ApiResponse({
@@ -73,6 +78,60 @@ export class QuizzesController {
     return this.quizzesService.getQuizDetailedStats(quizId);
   }
 
+  // ==============================
+  // ОБЩАЯ СТАТИСТИКА ПОЛЬЗОВАТЕЛЯ
+  // ==============================
+  @Get('my/stats')
+  @ApiResponse({
+    status: 200,
+    description:
+      'Статистика всех квизов текущего пользователя (средний балл, количество прохождений)',
+    schema: {
+      example: [
+        {
+          quizId: '64a1b2c3d4e5f67890123456',
+          title: 'Тест по JavaScript',
+          averageScore: 3.2,
+          attempts: 5,
+        },
+      ],
+    },
+  })
+  async getMyQuizzesStats(@Req() req: Request) {
+    const user = (req as any).user || { id: 'test-author' };
+    return this.quizzesService.getQuizzesStats(user.id);
+  }
+
+  // ==============================
+  // СПИСОК КВИЗОВ ПОЛЬЗОВАТЕЛЯ
+  // ==============================
+  @Get('my')
+  @ApiResponse({
+    status: 200,
+    description: 'Список квизов текущего пользователя',
+    type: [CreateQuizDto], // Можно указать реальный тип, если есть QuizDto
+  })
+  async getMyQuizzes(@Req() req: Request) {
+    const user = (req as any).user || { id: 'test-author' };
+    return this.quizzesService.findAllByAuthor(user.id);
+  }
+
+  // ==============================
+  // ЗАКРЫТИЕ КВИЗА
+  // ==============================
+  @Patch('my/:id/close')
+  @ApiResponse({
+    status: 200,
+    description: 'Закрывает квиз для прохождения',
+  })
+  async closeQuiz(@Param('id') quizId: string, @Req() req: Request) {
+    const user = (req as any).user;
+    return this.quizzesService.closeQuiz(quizId, user.id);
+  }
+
+  // ==============================
+  // ПОЛУЧЕНИЕ КВИЗА ПО SHORT ID
+  // ==============================
   @Get('short/:shortId')
   @ApiParam({ name: 'shortId', description: 'Читаемый короткий ID квиза', example: 'ABC123' })
   @ApiResponse({
@@ -109,37 +168,9 @@ export class QuizzesController {
     };
   }
 
-  @Get('my/stats')
-  @ApiResponse({
-    status: 200,
-    description: 'Статистика всех квизов текущего пользователя (средний балл, количество прохождений)',
-    schema: {
-      example: [
-        {
-          quizId: '64a1b2c3d4e5f67890123456',
-          title: 'Тест по JavaScript',
-          averageScore: 3.2,
-          attempts: 5,
-        },
-      ],
-    },
-  })
-  async getMyQuizzesStats(@Req() req: Request) {
-    const user = (req as any).user || { id: 'test-author' };
-    return this.quizzesService.getQuizzesStats(user.id);
-  }
-
-  @Get('my')
-  @ApiResponse({
-    status: 200,
-    description: 'Список квизов текущего пользователя',
-    type: [CreateQuizDto], // Можно указать реальный тип, если есть QuizDto
-  })
-  async getMyQuizzes(@Req() req: Request) {
-    const user = (req as any).user || { id: 'test-author' };
-    return this.quizzesService.findAllByAuthor(user.id);
-  }
-
+  // ==============================
+  // ВСЕ КВИЗЫ
+  // ==============================
   @Get('all')
   @ApiResponse({
     status: 200,
@@ -150,18 +181,8 @@ export class QuizzesController {
     return this.quizzesService.findAll();
   }
 
-  @Patch('my/:id/close')
-  @ApiResponse({
-    status: 200,
-    description: 'Закрывает квиз для прохождения',
-  })
-  async closeQuiz(@Param('id') quizId: string, @Req() req: Request) {
-    const user = (req as any).user;
-    return this.quizzesService.closeQuiz(quizId, user.id);
-  }
-
   // ==============================
-  // Поиск квиза по ID (должен быть последним, чтобы не перехватывать специфичные роуты)
+  // ПОИСК КВИЗА ПО ID (ПОСЛЕДНИЙ)
   // ==============================
   @Get(':id')
   @ApiParam({ name: 'id', description: 'ID квиза', example: '64a1b2c3d4e5f67890123456' })
