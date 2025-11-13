@@ -19,17 +19,17 @@ export function setDebugToast(toast: ToastFunction) {
 /**
  * Показывает дебаг-сообщение (тост или console.log)
  */
-function debugLog(message: string, type: 'info' | 'error' = 'info') {
-  if (!DEBUG_ENABLED) return;
-  
-  if (debugToast) {
-    debugToast(message, type);
+function debugLog(message: string, type: 'info' | 'error' = 'info', showToast: boolean = false) {
+  // Всегда логируем в консоль
+  if (type === 'error') {
+    console.error('[DEBUG]', message);
   } else {
-    if (type === 'error') {
-      console.error('[DEBUG]', message);
-    } else {
-      console.log('[DEBUG]', message);
-    }
+    console.log('[DEBUG]', message);
+  }
+  
+  // Тосты показываем только если явно указано или это ошибка
+  if (DEBUG_ENABLED && (showToast || type === 'error') && debugToast) {
+    debugToast(message, type);
   }
 }
 
@@ -73,7 +73,6 @@ export function copyToClipboard(text: string): Promise<void> {
 export function shareContent(text: string, link: string) {
   debugLog(`shareContent: text="${text}", link="${link}"`);
   const webApp = getWebApp();
-  debugLog(`shareContent: webApp=${!!webApp}, isMaxWebApp=${isMaxWebApp()}`);
   
   // Проверяем ограничения MAX API: максимум 200 символов для text и link
   const MAX_LENGTH = 200;
@@ -85,36 +84,32 @@ export function shareContent(text: string, link: string) {
   
   // Проверяем, что хотя бы один параметр не пустой (требование MAX API)
   if (!truncatedText.trim() && !truncatedLink.trim()) {
-    debugLog('shareContent: Оба параметра пустые', 'error');
+    debugLog('shareContent: Оба параметра пустые', 'error', true);
     return false;
   }
   
-  debugLog(`shareContent: Усеченные параметры - text="${truncatedText}" (${truncatedText.length}), link="${truncatedLink}" (${truncatedLink.length})`);
-  
   if (isMaxWebApp() && webApp?.shareContent) {
-    debugLog('shareContent: Вызываем webApp.shareContent');
     try {
       // Передаем оба параметра как строки (даже если один пустой)
       webApp.shareContent(truncatedText, truncatedLink);
       hapticFeedbackInternal('notification', 'success');
-      debugLog('shareContent: Успешно вызван webApp.shareContent');
+      debugLog('shareContent: Успешно вызван webApp.shareContent', 'info', true);
       return true;
     } catch (error: any) {
-      debugLog(`shareContent: Ошибка при вызове webApp.shareContent - ${error?.message || error}`, 'error');
+      debugLog(`shareContent: Ошибка при вызове webApp.shareContent - ${error?.message || error}`, 'error', true);
       return false;
     }
   }
   
   // Fallback на Web Share API
   if (navigator.share) {
-    debugLog('shareContent: Используем navigator.share');
     navigator.share({ text: truncatedText, url: truncatedLink }).catch((error: any) => {
       debugLog(`shareContent: Ошибка navigator.share - ${error?.message || error}`, 'error');
     });
     return true;
   }
   
-  debugLog('shareContent: Ни один метод не доступен');
+  debugLog('shareContent: Ни один метод не доступен', 'error', true);
   return false;
 }
 
@@ -133,39 +128,56 @@ export function shareMaxContent(text: string, link: string) {
   
   // Проверяем, что хотя бы один параметр не пустой (требование MAX API)
   if (!truncatedText.trim() && !truncatedLink.trim()) {
-    debugLog('shareMaxContent: Оба параметра пустые', 'error');
+    debugLog('shareMaxContent: Оба параметра пустые', 'error', true);
     return false;
   }
   
-  debugLog(`shareMaxContent: Усеченные параметры - text="${truncatedText}" (${truncatedText.length}), link="${truncatedLink}" (${truncatedLink.length})`);
-  debugLog(`shareMaxContent: typeof webApp=${typeof webApp}, typeof shareMaxContent=${typeof webApp?.shareMaxContent}`);
-  
   if (!isMaxWebApp()) {
-    debugLog('shareMaxContent: Не в MAX WebApp, метод недоступен', 'error');
+    debugLog('shareMaxContent: Не в MAX WebApp, метод недоступен', 'error', true);
     return false;
   }
   
   if (!webApp) {
-    debugLog('shareMaxContent: webApp не найден', 'error');
+    debugLog('shareMaxContent: webApp не найден', 'error', true);
     return false;
   }
   
   if (!webApp.shareMaxContent) {
-    debugLog(`shareMaxContent: webApp.shareMaxContent не найден. Доступные методы: ${Object.keys(webApp).join(', ')}`, 'error');
+    debugLog(`shareMaxContent: webApp.shareMaxContent не найден. Доступные методы: ${Object.keys(webApp).join(', ')}`, 'error', true);
     return false;
   }
   
-  debugLog('shareMaxContent: Вызываем webApp.shareMaxContent');
+  // Пробуем разные варианты: возможно ссылку нужно передавать в text
   try {
-    // Передаем оба параметра как строки (даже если один пустой)
-    webApp.shareMaxContent(truncatedText, truncatedLink);
+    // Вариант 1: ссылка в text, текст в link (наоборот)
+    debugLog(`shareMaxContent: Вариант 1 - text="${truncatedLink}", link="${truncatedText}"`);
+    webApp.shareMaxContent(truncatedLink, truncatedText);
     hapticFeedbackInternal('notification', 'success');
-    debugLog('shareMaxContent: Успешно вызван webApp.shareMaxContent');
+    debugLog('shareMaxContent: Успешно! Вариант 1 сработал (ссылка в text)', 'info', true);
     return true;
-  } catch (error: any) {
-    debugLog(`shareMaxContent: Ошибка при вызове webApp.shareMaxContent - ${error?.message || error}`, 'error');
-    debugLog(`shareMaxContent: Стек ошибки: ${error?.stack || 'нет стека'}`, 'error');
-    return false;
+  } catch (error1: any) {
+    debugLog(`shareMaxContent: Вариант 1 не сработал: ${error1?.message || error1}`);
+    try {
+      // Вариант 2: стандартный - текст в text, ссылка в link
+      debugLog(`shareMaxContent: Вариант 2 - text="${truncatedText}", link="${truncatedLink}"`);
+      webApp.shareMaxContent(truncatedText, truncatedLink);
+      hapticFeedbackInternal('notification', 'success');
+      debugLog('shareMaxContent: Успешно! Вариант 2 сработал (стандартный)', 'info', true);
+      return true;
+    } catch (error2: any) {
+      debugLog(`shareMaxContent: Вариант 2 не сработал: ${error2?.message || error2}`);
+      try {
+        // Вариант 3: только ссылка в text, link пустой
+        debugLog(`shareMaxContent: Вариант 3 - text="${truncatedLink}", link=""`);
+        webApp.shareMaxContent(truncatedLink, '');
+        hapticFeedbackInternal('notification', 'success');
+        debugLog('shareMaxContent: Успешно! Вариант 3 сработал (только ссылка)', 'info', true);
+        return true;
+      } catch (error3: any) {
+        debugLog(`shareMaxContent: Все варианты не сработали. Последняя ошибка: ${error3?.message || error3}`, 'error', true);
+        return false;
+      }
+    }
   }
 }
 

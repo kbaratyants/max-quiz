@@ -74,10 +74,6 @@ export default function MySurveys() {
     const publicUrl = getPublicUrl(quiz);
     const text = `Квиз: ${quiz.title}`;
     
-    if (DEBUG_ENABLED) {
-      toast.info(`handleShare: text="${text}", url="${publicUrl}"`);
-    }
-    
     if (shareMaxContent(text, publicUrl)) {
       return true;
     }
@@ -251,23 +247,8 @@ export default function MySurveys() {
                               <>
                                 <button
                                   onClick={() => {
-                                    if (DEBUG_ENABLED) {
-                                      toast.info('Поделиться в MAX: начало');
-                                    }
-                                    const text = `Квиз: ${quiz.title}`;
-                                    
-                                    if (DEBUG_ENABLED) {
-                                      toast.info(`Параметры: text="${text}", url="${publicUrl}"`);
-                                      toast.info(`isMaxWebApp: ${isMaxWebApp()}`);
-                                      const webApp = window.WebApp;
-                                      toast.info(`WebApp доступен: ${!!webApp}, shareMaxContent: ${!!webApp?.shareMaxContent}`);
-                                    }
-                                    
                                     // Используем handleShare, который правильно обрабатывает shareMaxContent
-                                    const result = handleShare(quiz);
-                                    if (DEBUG_ENABLED) {
-                                      toast.info(`handleShare результат: ${result}`);
-                                    }
+                                    handleShare(quiz);
                                   }}
                                   className="btn btn-secondary"
                                   style={{ flex: '0 0 auto' }}
@@ -276,26 +257,9 @@ export default function MySurveys() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    if (DEBUG_ENABLED) {
-                                      toast.info('Поделиться: начало');
-                                    }
                                     const text = `Квиз: ${quiz.title}`;
-                                    
-                                    if (DEBUG_ENABLED) {
-                                      toast.info(`Параметры: text="${text}", url="${publicUrl}"`);
-                                      toast.info(`isMaxWebApp: ${isMaxWebApp()}`);
-                                      const webApp = window.WebApp;
-                                      toast.info(`WebApp доступен: ${!!webApp}, shareContent: ${!!webApp?.shareContent}, navigator.share: ${!!navigator.share}`);
-                                    }
-                                    
                                     const result = shareContent(text, publicUrl);
-                                    if (DEBUG_ENABLED) {
-                                      toast.info(`shareContent результат: ${result}`);
-                                    }
                                     if (!result) {
-                                      if (DEBUG_ENABLED) {
-                                        toast.warning('shareContent не сработал, копируем в буфер');
-                                      }
                                       handleCopy(publicUrl);
                                     }
                                   }}
