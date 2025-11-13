@@ -1,8 +1,12 @@
 version: '3.8'
 
+x-restart-policy: &restart-policy
+  restart: always
+
 services:
   mongo:
     image: mongo:7
+    <<: *restart-policy
     container_name: max-quiz-mongo
     ports:
       - "27017:27017"
@@ -15,6 +19,7 @@ services:
 
   backend:
     build:
+      <<: *restart-policy
       context: ./backend
       dockerfile: Dockerfile
     container_name: max-quiz-backend
@@ -37,10 +42,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: max-quiz-frontend
+    <<: *restart-policy
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: ${VITE_API_URL}
+      #VITE_API_URL: ${VITE_API_URL}
+      VITE_API_URL: http://localhost:3000
     depends_on:
       - backend
     networks:
