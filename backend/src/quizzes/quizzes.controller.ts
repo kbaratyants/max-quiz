@@ -39,7 +39,10 @@ export class QuizzesController {
     },
   })
   async create(@Body() dto: CreateQuizDto, @Req() req: Request) {
-    const user = (req as any).user || { id: 'test-author', first_name: 'Test User' };
+    const user = (req as any).user || {
+      id: 'test-author',
+      first_name: 'Test User',
+    };
     const result = await this.quizzesService.create(dto, user);
 
     return {
@@ -55,7 +58,11 @@ export class QuizzesController {
   // СТАТИСТИКА ПО КОНКРЕТНОМУ КВИЗУ (ПОЛЬЗОВАТЕЛЬ)
   // ==============================
   @Get('my/stats/:id')
-  @ApiParam({ name: 'id', description: 'ID квиза', example: '64a1b2c3d4e5f67890123456' })
+  @ApiParam({
+    name: 'id',
+    description: 'ID квиза',
+    example: '64a1b2c3d4e5f67890123456',
+  })
   @ApiResponse({
     status: 200,
     description: 'Детальная статистика по квизу (по каждому вопросу)',
@@ -133,7 +140,11 @@ export class QuizzesController {
   // ПОЛУЧЕНИЕ КВИЗА ПО SHORT ID
   // ==============================
   @Get('short/:shortId')
-  @ApiParam({ name: 'shortId', description: 'Читаемый короткий ID квиза', example: 'ABC123' })
+  @ApiParam({
+    name: 'shortId',
+    description: 'Читаемый короткий ID квиза',
+    example: 'ABC123',
+  })
   @ApiResponse({
     status: 200,
     description: 'Возвращает квиз по shortId',
@@ -152,20 +163,26 @@ export class QuizzesController {
       },
     },
   })
-  async getQuizByShortId(@Param('shortId') shortId: string) {
-    const quiz = await this.quizzesService.findByShortId(shortId);
-    if (!quiz) return { status: 'error', message: 'Квиз не найден' };
+  async getQuizByShortId(@Param('shortId') shortId: string, @Req() req: Request) {
+    const user = (req as any).user;
 
-    return {
-      status: 'ok',
-      data: {
-        quizId: quiz._id,
-        shortId: quiz.shortId,
-        title: quiz.title,
-        description: quiz.description,
-        questions: quiz.questions,
-      },
-    };
+    try {
+      const quiz = await this.quizzesService.getQuizByShortIdForUser(shortId, user?.id);
+      if (!quiz) return { status: 'error', message: 'Квиз не найден' };
+
+      return {
+        status: 'ok',
+        data: {
+          quizId: quiz._id,
+          shortId: quiz.shortId,
+          title: quiz.title,
+          description: quiz.description,
+          questions: quiz.questions,
+        },
+      };
+    } catch (err) {
+      return { status: 'error', message: err.message };
+    }
   }
 
   // ==============================
@@ -185,30 +202,21 @@ export class QuizzesController {
   // ПОИСК КВИЗА ПО ID (ПОСЛЕДНИЙ)
   // ==============================
   @Get(':id')
-  @ApiParam({ name: 'id', description: 'ID квиза', example: '64a1b2c3d4e5f67890123456' })
-  @ApiResponse({
-    status: 200,
-    description: 'Возвращает данные квиза по его ID',
-    schema: {
-      example: {
-        quizId: '64a1b2c3d4e5f67890123456',
-        title: 'Тест по JavaScript',
-        description: 'Базовый тест для проверки знаний JS',
-        questions: [
-          {
-            question: 'Что выведет console.log(typeof null)?',
-            options: ['null', 'object', 'undefined', 'number'],
-          },
-        ],
-        authorId: 'test-author',
-      },
-    },
+  @ApiParam({
+    name: 'id',
+    description: 'ID квиза',
+    example: '64a1b2c3d4e5f67890123456',
   })
-  async getQuizById(@Param('id') quizId: string) {
-    const quiz = await this.quizzesService.findById(quizId);
-    if (!quiz) {
-      return { status: 'error', message: 'Квиз не найден' };
+  @ApiResponse({ status: 200, description: 'Возвращает данные квиза по ID' })
+  async getQuizById(@Param('id') quizId: string, @Req() req: Request) {
+    const user = (req as any).user;
+
+    try {
+      const quiz = await this.quizzesService.getQuizForUser(quizId, user?.id);
+      if (!quiz) return { status: 'error', message: 'Квиз не найден' };
+      return { status: 'ok', data: quiz };
+    } catch (err) {
+      return { status: 'error', message: err.message };
     }
-    return { status: 'ok', data: quiz };
   }
 }

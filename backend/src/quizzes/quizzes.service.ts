@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -127,5 +128,43 @@ export class QuizzesService {
     await quiz.save();
 
     return { status: 'ok', message: 'Квиз закрыт' };
+  }
+
+  async getQuizForUser(quizId: string, userId?: string) {
+    const quiz = await this.quizModel.findById(quizId);
+    if (!quiz) return null;
+
+    // Если указали пользователя, проверяем сабмишены
+    if (userId) {
+      const existing = await this.submissionModel.findOne({ quizId, userId });
+      if (existing) {
+        throw new BadRequestException('Вы уже проходили этот квиз');
+      }
+      if (!quiz.isActive) {
+        throw new BadRequestException('Квиз закрыт для новых ответов');
+      }
+    }
+
+    return quiz;
+  }
+
+  async getQuizByShortIdForUser(shortId: string, userId?: string) {
+    const quiz = await this.quizModel.findOne({ shortId });
+    if (!quiz) return null;
+
+    if (userId) {
+      // Проверяем, проходил ли уже пользователь этот квиз
+      const existing = await this.submissionModel.findOne({ quizId: quiz._id, userId });
+      if (existing) {
+        throw new BadRequestException('Вы уже проходили этот квиз');
+      }
+
+      // Проверяем, закрыт ли квиз для новых ответов
+      if (!quiz.isActive) {
+        throw new BadRequestException('Квиз закрыт для новых ответов');
+      }
+    }
+
+    return quiz;
   }
 }
