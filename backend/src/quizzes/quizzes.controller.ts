@@ -7,6 +7,7 @@ import {
   UsePipes,
   ValidationPipe,
   Param,
+  Patch,
 } from '@nestjs/common';
 import { ApiTags, ApiBody, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { QuizzesService } from './quizzes.service';
@@ -30,7 +31,6 @@ export class QuizzesController {
         data: {
           quizId: '64a1b2c3d4e5f67890123456',
           publicUrl: 'http://localhost:3000/quiz/64a1b2c3d4e5f67890123456',
-          qrDataUrl: 'data:image/png;base64,...',
         },
       },
     },
@@ -73,6 +73,42 @@ export class QuizzesController {
     return this.quizzesService.getQuizDetailedStats(quizId);
   }
 
+  @Get('short/:shortId')
+  @ApiParam({ name: 'shortId', description: 'Читаемый короткий ID квиза', example: 'ABC123' })
+  @ApiResponse({
+    status: 200,
+    description: 'Возвращает квиз по shortId',
+    schema: {
+      example: {
+        quizId: '64a1b2c3d4e5f67890123456',
+        shortId: 'ABC123',
+        title: 'Тест по JavaScript',
+        description: 'Небольшой тест для проверки знаний',
+        questions: [
+          {
+            question: 'Что выведет console.log(typeof null)?',
+            options: ['null', 'object', 'undefined', 'number'],
+          },
+        ],
+      },
+    },
+  })
+  async getQuizByShortId(@Param('shortId') shortId: string) {
+    const quiz = await this.quizzesService.findByShortId(shortId);
+    if (!quiz) return { status: 'error', message: 'Квиз не найден' };
+
+    return {
+      status: 'ok',
+      data: {
+        quizId: quiz._id,
+        shortId: quiz.shortId,
+        title: quiz.title,
+        description: quiz.description,
+        questions: quiz.questions,
+      },
+    };
+  }
+
   @Get('my/stats')
   @ApiResponse({
     status: 200,
@@ -112,6 +148,16 @@ export class QuizzesController {
   })
   async getAllQuizzes() {
     return this.quizzesService.findAll();
+  }
+
+  @Patch('my/:id/close')
+  @ApiResponse({
+    status: 200,
+    description: 'Закрывает квиз для прохождения',
+  })
+  async closeQuiz(@Param('id') quizId: string, @Req() req: Request) {
+    const user = (req as any).user;
+    return this.quizzesService.closeQuiz(quizId, user.id);
   }
 
   // ==============================

@@ -1,10 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Quiz } from './schemas/quiz.schema';
 import { Submission } from '../submissions/schemas/submission.schema';
 import { CreateQuizDto } from './dto/create-quiz.dto';
-import { randomUUID } from 'crypto';
+import { nanoid } from 'nanoid';
 
 @Injectable()
 export class QuizzesService {
@@ -14,7 +18,11 @@ export class QuizzesService {
   ) {}
 
   async create(dto: CreateQuizDto, user: any) {
-    const uuid = randomUUID();
+
+    let shortId: string;
+    do {
+      shortId = nanoid(8).toUpperCase();
+    } while (await this.quizModel.exists({ shortId }));
 
     const quiz = await this.quizModel.create({
       title: dto.title,
@@ -22,10 +30,14 @@ export class QuizzesService {
       questions: dto.questions,
       authorId: user.id,
       authorName: user.first_name,
-      uuid: uuid,
+      shortId: shortId,
     });
 
-    const publicUrl = `${process.env.BASE_URL}/api/quizzes/${quiz._id}`;
+    const botName = process.env.BOT_NAME || 't39_hakaton_bot';
+    const startParam = encodeURIComponent(quiz.shortId.toString());
+    const publicUrl = `https://max.ru/${botName}?startapp=${startParam}`;
+
+    //const publicUrl = `${process.env.BASE_URL}/api/quizzes/${quiz._id}`;
     return { quiz, publicUrl };
   }
 
@@ -39,6 +51,10 @@ export class QuizzesService {
 
   async findById(quizId: string) {
     return this.quizModel.findById(quizId);
+  }
+
+  async findByShortId(shortId: string) {
+    return this.quizModel.findOne({ shortId });
   }
 
   // ======================
@@ -100,5 +116,16 @@ export class QuizzesService {
         : 0,
       questions: questionsStats,
     };
+  }
+
+  async closeQuiz(quizId: string, authorId: string) {
+    const quiz = await this.quizModel.findById(quizId);
+    if (!quiz) throw new NotFoundException('Квиз не найден');
+    if (quiz.authorId !== authorId) throw new ForbiddenException('Нет доступа');
+
+    quiz.isActive = false;
+    await quiz.save();
+
+    return { status: 'ok', message: 'Квиз закрыт' };
   }
 }

@@ -9,6 +9,9 @@ export class Submission extends Document {
   @Prop()
   userId?: string;
 
+  @Prop()
+  userName?: string;
+
   @Prop({ type: [Number], required: true })
   answers: number[];
 

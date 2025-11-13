@@ -22,7 +22,7 @@ export class MaxAuthMiddleware {
       const data = this.parseInitData(raw);
 
       // Логирование для отладки (только в development)
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === 'development') {
         console.log('[MaxAuth] Parsed data:', {
           keys: Object.keys(data),
           hasHash: !!data.hash,
@@ -33,7 +33,7 @@ export class MaxAuthMiddleware {
 
       const isValid = this.verify(data);
       if (!isValid) {
-        if (process.env.NODE_ENV === 'production') {
+        if (process.env.NODE_ENV === 'development') {
           const debugInfo = this.getDebugInfo(data);
           console.error('[MaxAuth] Signature verification failed:');
           console.error('Raw initData:', raw);

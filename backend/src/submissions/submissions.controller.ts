@@ -8,7 +8,13 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiBody, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBody,
+  ApiResponse,
+  ApiParam,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { SubmissionsService } from './submissions.service';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
 import { SubmissionDetailDto } from './dto/submission-response.dto';
@@ -49,5 +55,30 @@ export class SubmissionsController {
   ): Promise<SubmissionDetailDto> {
     const user = (req as any).user || { id: 'test-author' };
     return this.submissionsService.getSubmissionDetail(submissionId, user.id);
+  }
+
+  @Get('quiz/:id/results')
+  @ApiOperation({ summary: 'Получить результаты квиза' })
+  @ApiParam({
+    name: 'id',
+    description: 'ID квиза',
+    example: '64a1b2c3d4e5f67890123456',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Список результатов по квизу. Пустой массив, если никто не проходил.',
+    schema: {
+      example: [
+        {
+          userId: 'test-user-id',
+          userName: 'Иван',
+          score: 3,
+          submittedAt: '2025-11-12T12:34:56.789Z',
+        },
+      ],
+    },
+  })
+  async getQuizResults(@Param('id') quizId: string) {
+    return this.submissionsService.getQuizResults(quizId);
   }
 }
