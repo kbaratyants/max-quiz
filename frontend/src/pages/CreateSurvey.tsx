@@ -200,19 +200,13 @@ export default function CreateSurvey() {
             </div>
 
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={() => navigate('/my-surveys')} className="btn btn-primary">
-                Опросы
-              </button>
               <button onClick={() => {
                 setCreatedQuiz(null);
                 setTitle('');
                 setDescription('');
                 setQuestions([{ question: '', options: ['', ''], correctAnswer: 0 }]);
-              }} className="btn btn-secondary">
+              }} className="btn btn-primary">
                 Создать ещё
-              </button>
-              <button onClick={() => navigate('/')} className="btn btn-secondary">
-                На главную
               </button>
             </div>
           </div>
