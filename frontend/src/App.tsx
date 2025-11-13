@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import Home from './pages/Home';
 import CreateSurvey from './pages/CreateSurvey';
 import TakeSurvey from './pages/TakeSurvey';
@@ -8,7 +9,7 @@ import SurveyStats from './pages/SurveyStats';
 import Profile from './pages/Profile';
 import BottomNavigation from './components/BottomNavigation';
 import { ToastProvider } from './context/ToastContext';
-import { isMaxWebApp, getUserInfoFromWebApp } from './utils/webapp';
+import { isMaxWebApp, getUserInfoFromWebApp, getStartParam } from './utils/webapp';
 import { useWebApp } from './hooks/useWebApp';
 import './App.css';
 
@@ -24,9 +25,26 @@ function App() {
 
 function AppContent() {
   useWebApp(); // Настраиваем кнопку "Назад" и другие функции WebApp
+  const navigate = useNavigate();
+  const location = useLocation();
   
   const userInfo = getUserInfoFromWebApp();
   const isInMax = isMaxWebApp();
+
+  // Обработка start_param при запуске приложения через startapp=...
+  useEffect(() => {
+    // Проверяем start_param только на главной странице, чтобы не перехватывать навигацию
+    if (location.pathname !== '/') {
+      return;
+    }
+
+    const startParam = getStartParam();
+    if (startParam) {
+      console.log('[MAX WebApp] Обнаружен start_param:', startParam);
+      // start_param содержит shortId квиза, переходим на страницу прохождения
+      navigate(`/survey/${startParam}`, { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   return (
     <div className="app">

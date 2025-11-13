@@ -62,9 +62,14 @@ export default function MySurveys() {
   };
 
   const getPublicUrl = (quiz: Quiz) => {
-    // Используем shortId для URL, если доступен, иначе _id
+    // В ссылке используем shortId для читаемости
     const id = quiz.shortId || quiz._id;
     return `${window.location.origin}/survey/${id}`;
+  };
+
+  const getQrCodeUrl = (quiz: Quiz) => {
+    // В QR-коде должен быть _id, а не shortId
+    return `${window.location.origin}/survey/${quiz._id}`;
   };
 
   const handleCloseQuiz = async (quizId: string) => {
@@ -238,7 +243,8 @@ export default function MySurveys() {
                       <div style={{ textAlign: 'center', alignSelf: 'center' }}>
                         <h4>QR-код:</h4>
                         <div style={{ padding: '15px', background: 'white', borderRadius: '8px', display: 'inline-block', marginTop: '10px' }}>
-                          <QRCodeSVG value={publicUrl} size={150} />
+                          {/* В QR-коде должен быть _id, а не shortId */}
+                          <QRCodeSVG value={getQrCodeUrl(quiz)} size={150} />
                         </div>
                       </div>
                     </div>

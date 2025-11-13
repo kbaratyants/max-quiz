@@ -76,7 +76,10 @@ export default function SurveyStats() {
     try {
       setLoadingResults(true);
       const response = await api.get(`/submissions/quiz/${quizId}/results`);
-      setQuizResults(response.data || []);
+      // Бэкенд возвращает массив напрямую, не обернутый в { status, data }
+      const results = Array.isArray(response.data) ? response.data : [];
+      console.log('Загружены результаты квиза:', results);
+      setQuizResults(results);
     } catch (error: any) {
       console.error('Ошибка загрузки результатов:', error);
       toastRef.current.error('Не удалось загрузить результаты квиза');
@@ -238,12 +241,19 @@ export default function SurveyStats() {
                 Вопросов: {quiz.questions?.length || 0} • Создан: {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('ru-RU') : 'Неизвестно'}
               </p>
               <button
-                onClick={() => loadStats(quiz._id)}
+                onClick={() => {
+                  // Обновляем URL с quizId, чтобы при перезагрузке страницы статистика загружалась
+                  const newSearchParams = new URLSearchParams(searchParams);
+                  newSearchParams.set('quizId', quiz._id);
+                  window.history.pushState({}, '', `/stats?${newSearchParams.toString()}`);
+                  loadStats(quiz._id);
+                  loadQuizResults(quiz._id);
+                }}
                 className="btn btn-primary"
-                disabled={loadingStats}
+                disabled={loadingStats || loadingResults}
                 style={{ marginTop: '15px' }}
               >
-                {loadingStats ? 'Загрузка...' : 'Посмотреть статистику'}
+                {loadingStats || loadingResults ? 'Загрузка...' : 'Посмотреть статистику'}
               </button>
             </div>
           ))}

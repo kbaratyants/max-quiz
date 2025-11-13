@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, Quiz, Submission } from '../api';
-import { openCodeReader, hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection, isMaxWebApp, extractQuizIdFromQR } from '../utils/webapp-helpers';
-import { isMaxWebApp as checkMaxWebApp } from '../utils/webapp';
+import { hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection } from '../utils/webapp-helpers';
+import { isMaxWebApp as checkMaxWebApp, getStartParam } from '../utils/webapp';
 import { useToastContext } from '../context/ToastContext';
 
 export default function TakeSurvey() {
@@ -36,28 +36,40 @@ export default function TakeSurvey() {
     setLoading(true);
     setError(null);
     try {
-      // Пробуем сначала как shortId (обычно короткий, 8 символов)
-      // Если не получится, попробуем как обычный ID
+      // Пробуем сначала как shortId (если короткий, < 24 символов)
+      // Метод /quizzes/short/:shortId возвращает полный квиз с _id
+      // Если не получилось, пробуем как обычный ID
       let response;
       try {
-        // Пробуем shortId (если короткий, скорее всего это shortId)
-        if (id.length <= 12 && /^[A-Z0-9_-]+$/i.test(id)) {
+        // Пробуем shortId если длина меньше 24 символов (MongoDB ObjectId всегда 24)
+        if (id.length < 24 && /^[A-Z0-9_-]+$/i.test(id)) {
           response = await api.get(`/quizzes/short/${id}`);
         } else {
           // Иначе пробуем обычный ID
           response = await api.get(`/quizzes/${id}`);
         }
-      } catch (shortIdError: any) {
-        // Если shortId не сработал, пробуем обычный ID
-        if (shortIdError.response?.status === 404 && id.length <= 12) {
-          response = await api.get(`/quizzes/${id}`);
+      } catch (firstError: any) {
+        // Если первый запрос не сработал (404), пробуем альтернативный вариант
+        if (firstError.response?.status === 404) {
+          if (id.length < 24) {
+            // Если пробовали shortId, пробуем обычный ID
+            response = await api.get(`/quizzes/${id}`);
+          } else {
+            // Если пробовали обычный ID, пробуем shortId
+            response = await api.get(`/quizzes/short/${id}`);
+          }
         } else {
-          throw shortIdError;
+          throw firstError;
         }
       }
 
       if (response.data.status === 'ok' && response.data.data) {
         const quizData = response.data.data;
+        
+        // Нормализуем данные: если пришел quizId (из /quizzes/short/:shortId), преобразуем в _id
+        if (quizData.quizId && !quizData._id) {
+          quizData._id = quizData.quizId;
+        }
         
         // Проверяем isActive
         if (quizData.isActive === false) {
@@ -95,12 +107,22 @@ export default function TakeSurvey() {
     }
   }, []);
 
-  // Загружаем квиз при изменении paramPublicId
+  // Загружаем квиз при изменении paramPublicId или start_param
   useEffect(() => {
+    // Сначала проверяем paramPublicId из URL
     if (paramPublicId) {
       loadQuizById(paramPublicId);
+      return;
     }
-  }, [paramPublicId, loadQuizById]);
+
+    // Если нет paramPublicId, проверяем start_param (при запуске через startapp=...)
+    const startParam = getStartParam();
+    if (startParam && !quiz && !loading) {
+      console.log('[TakeSurvey] Обнаружен start_param:', startParam);
+      setQuizId(startParam);
+      loadQuizById(startParam);
+    }
+  }, [paramPublicId, loadQuizById, quiz, loading]);
 
   // Включаем защиту от скриншотов при прохождении квиза в MAX
   useEffect(() => {
@@ -134,41 +156,6 @@ export default function TakeSurvey() {
     const newAnswers = [...answers];
     newAnswers[questionIndex] = optionIndex;
     setAnswers(newAnswers);
-  };
-  
-  const handleScanQR = async () => {
-    try {
-      if (!checkMaxWebApp()) {
-        toast.error('QR сканер недоступен (не в MAX WebApp)');
-        return;
-      }
-
-      const qrResult = await openCodeReader(true);
-      
-      // Извлекаем quizId используя общую функцию
-      const quizId = extractQuizIdFromQR(qrResult);
-      if (quizId) {
-        setQuizId(quizId);
-        await loadQuizById(quizId);
-      } else {
-        toast.error(`Не удалось распознать ID из QR-кода: ${qrResult}`);
-      }
-    } catch (error: any) {
-      console.error('Ошибка сканирования QR:', error);
-      
-      // Показываем понятное сообщение пользователю
-      if (error?.message?.includes('QR code reader not available')) {
-        // Не показываем ошибку, если сканер недоступен (не в MAX)
-        return;
-      } else if (error?.message?.includes('Сканирование отменено')) {
-        // Не показываем ошибку, если пользователь просто отменил
-        return;
-      } else {
-        // Выводим детальную информацию об ошибке
-        const errorMessage = error?.message || 'Не удалось отсканировать QR-код';
-        toast.error(errorMessage);
-      }
-    }
   };
 
   const handleSubmit = async () => {
@@ -293,11 +280,6 @@ export default function TakeSurvey() {
             <button onClick={loadQuiz} className="btn btn-primary" disabled={loading}>
               {loading ? 'Загрузка...' : 'Загрузить квиз'}
             </button>
-            {isMaxWebApp() && (
-              <button onClick={handleScanQR} className="btn btn-secondary">
-                📷 Сканировать QR
-              </button>
-            )}
             <button onClick={() => navigate('/')} className="btn btn-secondary">
               Назад
             </button>

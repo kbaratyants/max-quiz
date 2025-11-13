@@ -114,6 +114,15 @@ export function getInitDataUnsafe() {
   return webApp?.initDataUnsafe || null;
 }
 
+export function getStartParam(): string | null {
+  const webApp = getWebApp();
+  // start_param приходит в initDataUnsafe при запуске через startapp=...
+  if (webApp?.initDataUnsafe?.start_param) {
+    return webApp.initDataUnsafe.start_param;
+  }
+  return null;
+}
+
 let isInitialized = false;
 
 export function initWebApp() {

@@ -14,6 +14,7 @@ interface Question {
 interface CreatedQuiz {
   quizId: string;
   publicUrl: string;
+  shortId?: string;
 }
 
 export default function CreateSurvey() {
@@ -193,7 +194,8 @@ export default function CreateSurvey() {
             <div>
               <h3>QR-код:</h3>
               <div style={{ padding: '20px', background: 'white', borderRadius: '8px', display: 'inline-block' }}>
-                <QRCodeSVG value={createdQuiz.publicUrl} size={200} />
+                {/* В QR-коде должен быть _id, а не shortId */}
+                <QRCodeSVG value={`${window.location.origin}/survey/${createdQuiz.quizId}`} size={200} />
               </div>
             </div>
 
