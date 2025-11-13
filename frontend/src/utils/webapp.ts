@@ -52,6 +52,8 @@ declare global {
       openMaxLink?: (url: string) => void;
       shareContent?: (text: string, link: string) => void;
       shareMaxContent?: (text: string, link: string) => void;
+      onEvent?: (eventName: string, callback: (data: any) => void) => void;
+      offEvent?: (eventName: string, callback: (data: any) => void) => void;
       openCodeReader?: (fileSelect?: boolean) => Promise<string | { value: string }>;
       expand?: () => void;
     };
