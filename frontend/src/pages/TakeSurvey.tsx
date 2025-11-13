@@ -117,13 +117,24 @@ export default function TakeSurvey() {
   }, [paramPublicId]); // Убираем loadQuizById из зависимостей, чтобы избежать бесконечных ретраев
 
   // Включаем защиту от скриншотов только при прохождении квиза (когда quiz загружен и не отправлен)
+  // Отключаем на всех остальных экранах
   useEffect(() => {
-    if (checkMaxWebApp() && quiz && !submitted) {
-      enableScreenCaptureProtection();
-      return () => {
-        disableScreenCaptureProtection();
-      };
+    if (!checkMaxWebApp()) {
+      return;
     }
+
+    // Включаем защиту только если квиз загружен и не отправлен
+    if (quiz && !submitted) {
+      enableScreenCaptureProtection();
+    } else {
+      // Отключаем защиту во всех остальных случаях
+      disableScreenCaptureProtection();
+    }
+
+    // Отключаем защиту при размонтировании компонента (уход со страницы)
+    return () => {
+      disableScreenCaptureProtection();
+    };
   }, [quiz, submitted]);
 
   // Очистка таймера при размонтировании

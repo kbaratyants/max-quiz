@@ -26,7 +26,7 @@ export default function BottomNavigation() {
         className={`bottom-nav-item ${isActive('/my-surveys') ? 'active' : ''}`}
       >
         <div className="bottom-nav-icon">📝</div>
-        <span className="bottom-nav-label">Мои квизы</span>
+        <span className="bottom-nav-label">Опросы</span>
       </Link>
       
       <Link 
@@ -34,15 +34,7 @@ export default function BottomNavigation() {
         className={`bottom-nav-item ${isActive('/my-responses') ? 'active' : ''}`}
       >
         <div className="bottom-nav-icon">📋</div>
-        <span className="bottom-nav-label">Пройденные</span>
-      </Link>
-      
-      <Link 
-        to="/stats" 
-        className={`bottom-nav-item ${isActive('/stats') ? 'active' : ''}`}
-      >
-        <div className="bottom-nav-icon">📊</div>
-        <span className="bottom-nav-label">Статистика</span>
+        <span className="bottom-nav-label">Результаты</span>
       </Link>
       
       <Link 

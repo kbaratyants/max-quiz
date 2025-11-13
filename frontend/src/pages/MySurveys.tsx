@@ -111,7 +111,7 @@ export default function MySurveys() {
   return (
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h2>Мои созданные квизы</h2>
+        <h2>Опросы</h2>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <Link to="/create" className="btn btn-primary">
             + Создать квиз
@@ -215,14 +215,25 @@ export default function MySurveys() {
                             {isMaxWebApp() && (
                               <>
                                 <button
-                                  onClick={() => handleShare(quiz)}
+                                  onClick={() => {
+                                    // Используем handleShare, который правильно обрабатывает shareMaxContent
+                                    handleShare(quiz);
+                                  }}
                                   className="btn btn-secondary"
                                   style={{ flex: '0 0 auto' }}
                                 >
                                   Поделиться в MAX
                                 </button>
                                 <button
-                                  onClick={() => shareContent(`Квиз: ${quiz.title}`, publicUrl)}
+                                  onClick={() => {
+                                    // Для обычного шаринга используем shareContent
+                                    const id = quiz.shortId || quiz._id;
+                                    const url = `${window.location.origin}/survey/${id}`;
+                                    if (!shareContent(`Квиз: ${quiz.title}`, url)) {
+                                      // Если shareContent не сработал, копируем в буфер
+                                      handleCopy(url);
+                                    }
+                                  }}
                                   className="btn btn-secondary"
                                   style={{ flex: '0 0 auto' }}
                                 >

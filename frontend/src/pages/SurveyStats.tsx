@@ -10,8 +10,8 @@ export default function SurveyStats() {
   const [selectedStats, setSelectedStats] = useState<QuizDetailedStats | null>(null);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
+  const [loadingQuizId, setLoadingQuizId] = useState<string | null>(null); // ID квиза, который сейчас загружается
   const loadingRef = useRef(false);
   const loadingStatsRef = useRef(false);
   const loadingResultsRef = useRef(false);
@@ -44,13 +44,12 @@ export default function SurveyStats() {
 
   const loadStats = useCallback(async (quizId: string) => {
     // Защита от повторных запросов
-    if (loadingStatsRef.current) {
+    if (loadingStatsRef.current && loadingQuizId === quizId) {
       return;
     }
     
     loadingStatsRef.current = true;
     try {
-      setLoadingStats(true);
       const response = await api.get(`/quizzes/my/stats/${quizId}`);
       setSelectedStats(response.data);
     } catch (error: any) {
@@ -61,14 +60,13 @@ export default function SurveyStats() {
         toastRef.current.error('Не удалось загрузить статистику');
       }
     } finally {
-      setLoadingStats(false);
       loadingStatsRef.current = false;
     }
-  }, []);
+  }, [loadingQuizId]);
 
   const loadQuizResults = useCallback(async (quizId: string) => {
     // Защита от повторных запросов
-    if (loadingResultsRef.current) {
+    if (loadingResultsRef.current && loadingQuizId === quizId) {
       return;
     }
     
@@ -88,7 +86,7 @@ export default function SurveyStats() {
       setLoadingResults(false);
       loadingResultsRef.current = false;
     }
-  }, []);
+  }, [loadingQuizId]);
 
   useEffect(() => {
     loadQuizzes();
@@ -241,19 +239,27 @@ export default function SurveyStats() {
                 Вопросов: {quiz.questions?.length || 0} • Создан: {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('ru-RU') : 'Неизвестно'}
               </p>
               <button
-                onClick={() => {
+                onClick={async () => {
                   // Обновляем URL с quizId, чтобы при перезагрузке страницы статистика загружалась
                   const newSearchParams = new URLSearchParams(searchParams);
                   newSearchParams.set('quizId', quiz._id);
                   window.history.pushState({}, '', `/stats?${newSearchParams.toString()}`);
-                  loadStats(quiz._id);
-                  loadQuizResults(quiz._id);
+                  setLoadingQuizId(quiz._id); // Устанавливаем ID перед загрузкой
+                  try {
+                    // Загружаем статистику и результаты параллельно
+                    await Promise.all([
+                      loadStats(quiz._id),
+                      loadQuizResults(quiz._id)
+                    ]);
+                  } finally {
+                    setLoadingQuizId(null); // Сбрасываем ID после завершения загрузки
+                  }
                 }}
                 className="btn btn-primary"
-                disabled={loadingStats || loadingResults}
+                disabled={loadingQuizId === quiz._id}
                 style={{ marginTop: '15px' }}
               >
-                {loadingStats || loadingResults ? 'Загрузка...' : 'Посмотреть статистику'}
+                {loadingQuizId === quiz._id ? 'Загрузка...' : 'Посмотреть статистику'}
               </button>
             </div>
           ))}

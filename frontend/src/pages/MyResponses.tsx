@@ -150,7 +150,7 @@ export default function MyResponses() {
   return (
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h2>Мои пройденные квизы</h2>
+        <h2>Результаты</h2>
         <Link to="/" className="btn btn-secondary">
           ← На главную
         </Link>
