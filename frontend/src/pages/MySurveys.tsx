@@ -48,7 +48,9 @@ export default function MySurveys() {
   };
   
   const handleShare = (quiz: Quiz) => {
-    const publicUrl = `${window.location.origin}/survey/${quiz._id}`;
+    // Используем shortId для URL, если доступен, иначе _id
+    const id = quiz.shortId || quiz._id;
+    const publicUrl = `${window.location.origin}/survey/${id}`;
     const text = `Квиз: ${quiz.title}`;
     if (shareMaxContent(text, publicUrl)) {
       return;
@@ -60,7 +62,25 @@ export default function MySurveys() {
   };
 
   const getPublicUrl = (quiz: Quiz) => {
-    return `${window.location.origin}/survey/${quiz._id}`;
+    // Используем shortId для URL, если доступен, иначе _id
+    const id = quiz.shortId || quiz._id;
+    return `${window.location.origin}/survey/${id}`;
+  };
+
+  const handleCloseQuiz = async (quizId: string) => {
+    // Используем toast для подтверждения вместо confirm
+    // Показываем предупреждение, но все равно закрываем
+    toast.warning('Закрытие квиза... После закрытия новые ответы приниматься не будут.');
+    
+    try {
+      await api.patch(`/quizzes/my/${quizId}/close`);
+      toast.success('Квиз успешно закрыт');
+      // Перезагружаем список квизов
+      loadQuizzes();
+    } catch (error: any) {
+      console.error('Ошибка закрытия квиза:', error);
+      toast.error(error.response?.data?.message || 'Не удалось закрыть квиз');
+    }
   };
 
   if (loading) {
@@ -97,7 +117,7 @@ export default function MySurveys() {
             return (
               <div key={quiz._id} className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: '1 1 0', minWidth: 0 }}>
                     <h3>{quiz.title}</h3>
                     {quiz.description && (
                       <p style={{ color: '#666', marginTop: '5px' }}>{quiz.description}</p>
@@ -106,6 +126,9 @@ export default function MySurveys() {
                       Создан: {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('ru-RU') : 'Неизвестно'}
                       {quiz.questions && (
                         <> • Вопросов: {quiz.questions.length}</>
+                      )}
+                      {quiz.isActive === false && (
+                        <> • <span style={{ color: '#dc3545', fontWeight: 'bold' }}>Закрыт</span></>
                       )}
                     </p>
                   </div>
@@ -123,6 +146,15 @@ export default function MySurveys() {
                     >
                       Статистика
                     </Link>
+                    {quiz.isActive !== false && (
+                      <button
+                        onClick={() => handleCloseQuiz(quiz._id)}
+                        className="btn btn-secondary"
+                        style={{ background: '#dc3545', color: 'white', border: 'none' }}
+                      >
+                        Закрыть квиз
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -136,7 +168,7 @@ export default function MySurveys() {
                             type="text"
                             value={publicUrl}
                             readOnly
-                            style={{ flex: 1, minWidth: '200px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            style={{ flex: '1 1 0', minWidth: '200px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }}
                           />
                           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             <button
@@ -164,6 +196,9 @@ export default function MySurveys() {
                           </div>
                         </div>
                         <p style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                          {quiz.shortId && (
+                            <>Short ID: <code>{quiz.shortId}</code><br /></>
+                          )}
                           ID: <code>{quiz._id}</code>
                         </p>
                       </div>

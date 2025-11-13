@@ -251,13 +251,19 @@ export default function CreateSurvey() {
             <div className="form-group">
               <label>Варианты ответов</label>
               {question.options.map((option, oIndex) => (
-                <div key={oIndex} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                <div key={oIndex} style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'center' }}>
                   <input
                     type="radio"
                     name={`correct-${qIndex}`}
                     checked={question.correctAnswer === oIndex}
                     onChange={() => updateQuestion(qIndex, 'correctAnswer', oIndex)}
-                    style={{ marginRight: '5px' }}
+                    style={{ 
+                      width: '18px',
+                      height: '18px',
+                      minWidth: '18px',
+                      flexShrink: 0,
+                      cursor: 'pointer'
+                    }}
                   />
                   <input
                     type="text"
@@ -265,7 +271,15 @@ export default function CreateSurvey() {
                     onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
                     placeholder={`Вариант ${oIndex + 1}`}
                     required
-                    style={{ flex: 1 }}
+                    style={{ 
+                      flex: '1 1 0',
+                      minWidth: '150px',
+                      padding: '10px', 
+                      fontSize: '16px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      boxSizing: 'border-box'
+                    }}
                   />
                   {question.options.length > 2 && (
                     <button

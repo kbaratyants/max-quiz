@@ -68,9 +68,9 @@ export function shareMaxContent(text: string, link: string) {
 }
 
 /**
- * Извлекает quizId из QR-кода (может быть URL или прямой ID)
+ * Извлекает quizId из QR-кода (может быть URL или прямой ID/shortId)
  * @param qrResult - Результат сканирования QR-кода
- * @returns quizId или null, если не удалось распознать
+ * @returns quizId/shortId или null, если не удалось распознать
  */
 export function extractQuizIdFromQR(qrResult: string): string | null {
   if (!qrResult || !qrResult.trim()) {
@@ -79,14 +79,15 @@ export function extractQuizIdFromQR(qrResult: string): string | null {
 
   const trimmed = qrResult.trim();
 
-  // Извлекаем quizId из URL если это ссылка
+  // Извлекаем quizId/shortId из URL если это ссылка
   // Поддерживаем разные форматы: /survey/, /quiz/, /quizzes/
   const match = trimmed.match(/(?:survey|quiz|quizzes)\/([a-zA-Z0-9_-]+)/i);
   if (match) {
     return match[1];
   }
 
-  // Прямой ID - проверяем формат перед использованием
+  // Прямой ID/shortId - проверяем формат перед использованием
+  // shortId обычно короткий (8 символов), но может быть и длиннее
   if (/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
     return trimmed;
   }

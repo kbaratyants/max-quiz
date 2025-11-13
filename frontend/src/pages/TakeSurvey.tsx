@@ -36,16 +36,55 @@ export default function TakeSurvey() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/quizzes/${id}`);
+      // Пробуем сначала как shortId (обычно короткий, 8 символов)
+      // Если не получится, попробуем как обычный ID
+      let response;
+      try {
+        // Пробуем shortId (если короткий, скорее всего это shortId)
+        if (id.length <= 12 && /^[A-Z0-9_-]+$/i.test(id)) {
+          response = await api.get(`/quizzes/short/${id}`);
+        } else {
+          // Иначе пробуем обычный ID
+          response = await api.get(`/quizzes/${id}`);
+        }
+      } catch (shortIdError: any) {
+        // Если shortId не сработал, пробуем обычный ID
+        if (shortIdError.response?.status === 404 && id.length <= 12) {
+          response = await api.get(`/quizzes/${id}`);
+        } else {
+          throw shortIdError;
+        }
+      }
+
       if (response.data.status === 'ok' && response.data.data) {
-        setQuiz(response.data.data);
-        setAnswers(new Array(response.data.data.questions.length).fill(-1));
+        const quizData = response.data.data;
+        
+        // Проверяем isActive
+        if (quizData.isActive === false) {
+          setError('Квиз закрыт для прохождения');
+          setQuiz(null);
+          return;
+        }
+        
+        setQuiz(quizData);
+        setAnswers(new Array(quizData.questions.length).fill(-1));
       } else {
         setError('Квиз не найден');
       }
     } catch (error: any) {
       console.error('Ошибка загрузки квиза:', error);
-      if (error.response?.status === 404) {
+      
+      // Обрабатываем специфичные ошибки от бэкенда
+      if (error.response?.data?.message) {
+        const message = error.response.data.message;
+        if (message.includes('уже проходили')) {
+          setError('Вы уже проходили этот квиз');
+        } else if (message.includes('закрыт')) {
+          setError('Квиз закрыт для прохождения');
+        } else {
+          setError(message);
+        }
+      } else if (error.response?.status === 404) {
         setError('Квиз не найден');
       } else {
         setError('Не удалось загрузить квиз');
@@ -139,10 +178,18 @@ export default function TakeSurvey() {
       return;
     }
 
+    if (!quiz) return;
+
+    // Проверяем isActive перед отправкой
+    if (quiz.isActive === false) {
+      hapticFeedback('notification', 'error');
+      toast.error('Квиз закрыт для прохождения');
+      return;
+    }
+
     setSubmitting(true);
     hapticFeedback('impact', 'medium');
     try {
-      if (!quiz) return;
       const response = await api.patch(`/submissions/quiz/${quiz._id}/submit`, { answers });
       setSubmitted(true);
       setSubmissionResult(response.data);
@@ -150,7 +197,20 @@ export default function TakeSurvey() {
     } catch (error: any) {
       console.error('Ошибка отправки ответов:', error);
       hapticFeedback('notification', 'error');
-      toast.error('Не удалось отправить ответы');
+      
+      // Обрабатываем специфичные ошибки
+      if (error.response?.data?.message) {
+        const message = error.response.data.message;
+        if (message.includes('уже проходили')) {
+          toast.error('Вы уже проходили этот квиз');
+        } else if (message.includes('закрыт')) {
+          toast.error('Квиз закрыт для новых ответов');
+        } else {
+          toast.error(message);
+        }
+      } else {
+        toast.error('Не удалось отправить ответы');
+      }
     } finally {
       setSubmitting(false);
     }

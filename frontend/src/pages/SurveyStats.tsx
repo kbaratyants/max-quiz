@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { api, Quiz, QuizDetailedStats } from '../api';
+import { api, Quiz, QuizDetailedStats, QuizResult } from '../api';
 import { useToastContext } from '../context/ToastContext';
 
 export default function SurveyStats() {
@@ -8,10 +8,13 @@ export default function SurveyStats() {
   const [searchParams] = useSearchParams();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [selectedStats, setSelectedStats] = useState<QuizDetailedStats | null>(null);
+  const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
   const loadingRef = useRef(false);
   const loadingStatsRef = useRef(false);
+  const loadingResultsRef = useRef(false);
   const toastRef = useRef(toast);
   
   // Обновляем ref при изменении toast
@@ -63,13 +66,35 @@ export default function SurveyStats() {
     }
   }, []);
 
+  const loadQuizResults = useCallback(async (quizId: string) => {
+    // Защита от повторных запросов
+    if (loadingResultsRef.current) {
+      return;
+    }
+    
+    loadingResultsRef.current = true;
+    try {
+      setLoadingResults(true);
+      const response = await api.get(`/submissions/quiz/${quizId}/results`);
+      setQuizResults(response.data || []);
+    } catch (error: any) {
+      console.error('Ошибка загрузки результатов:', error);
+      toastRef.current.error('Не удалось загрузить результаты квиза');
+      setQuizResults([]);
+    } finally {
+      setLoadingResults(false);
+      loadingResultsRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     loadQuizzes();
     const quizId = searchParams.get('quizId');
     if (quizId) {
       loadStats(quizId);
+      loadQuizResults(quizId);
     }
-  }, [loadQuizzes, loadStats, searchParams]);
+  }, [loadQuizzes, loadStats, loadQuizResults, searchParams]);
 
   if (loading) {
     return <div className="container"><div className="loading">Загрузка...</div></div>;
@@ -107,29 +132,79 @@ export default function SurveyStats() {
             <p>Пока нет прохождений этого квиза.</p>
           </div>
         ) : (
-          <div>
-            {selectedStats.questions.map((question, index) => {
-              return (
-                <div key={index} className="card">
-                  <h3>Вопрос {index + 1}: {question.question}</h3>
-                  <div style={{ marginTop: '15px', padding: '10px', background: question.correctPercentage >= 70 ? '#d4edda' : question.correctPercentage >= 50 ? '#fff3cd' : '#f8d7da', borderRadius: '4px' }}>
-                    <strong>Правильных ответов:</strong> {question.correctCount} из {question.totalAttempts} ({question.correctPercentage.toFixed(1)}%)
-                  </div>
-                  <div style={{ marginTop: '20px' }}>
-                    <h4>Варианты ответов:</h4>
-                    <ul style={{ listStyle: 'none', padding: 0, marginTop: '10px' }}>
-                      {question.options.map((opt, optIndex) => (
-                        <li key={optIndex} style={{ marginBottom: '10px', padding: '10px', background: optIndex === question.correctAnswer ? '#d4edda' : '#f5f5f5', borderRadius: '4px', borderLeft: optIndex === question.correctAnswer ? '4px solid #28a745' : 'none' }}>
-                          <strong>{opt}</strong>
-                          {optIndex === question.correctAnswer && <span style={{ color: '#28a745', marginLeft: '10px' }}>✓ Правильный ответ</span>}
-                        </li>
+          <>
+            {/* Список всех, кто проходил квиз */}
+            <div className="card">
+              <h3>Все прохождения ({quizResults.length})</h3>
+              {loadingResults ? (
+                <p>Загрузка результатов...</p>
+              ) : quizResults.length === 0 ? (
+                <p>Пока нет прохождений.</p>
+              ) : (
+                <div style={{ marginTop: '15px' }}>
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {quizResults
+                      .sort((a, b) => b.score - a.score) // Сортируем по убыванию баллов
+                      .map((result, index) => (
+                        <div
+                          key={result.userId + result.submittedAt}
+                          style={{
+                            padding: '15px',
+                            background: index === 0 ? '#fff3cd' : '#f5f5f5',
+                            borderRadius: '8px',
+                            border: index === 0 ? '2px solid #ffc107' : '1px solid #ddd',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '10px',
+                          }}
+                        >
+                          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                              {index === 0 && <span style={{ fontSize: '20px' }}>🏆</span>}
+                              <strong>{result.userName || `Пользователь ${result.userId}`}</strong>
+                              <span style={{ color: '#666', fontSize: '14px' }}>
+                                {new Date(result.submittedAt).toLocaleString('ru-RU')}
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '18px', fontWeight: 'bold', color: index === 0 ? '#ffc107' : '#007bff' }}>
+                            {result.score} из {selectedStats.questions.length} ({Math.round((result.score / selectedStats.questions.length) * 100)}%)
+                          </div>
+                        </div>
                       ))}
-                    </ul>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+
+            {/* Детальная статистика по вопросам */}
+            <div>
+              <h2 style={{ marginTop: '30px', marginBottom: '20px' }}>Статистика по вопросам</h2>
+              {selectedStats.questions.map((question, index) => {
+                return (
+                  <div key={index} className="card">
+                    <h3>Вопрос {index + 1}: {question.question}</h3>
+                    <div style={{ marginTop: '15px', padding: '10px', background: question.correctPercentage >= 70 ? '#d4edda' : question.correctPercentage >= 50 ? '#fff3cd' : '#f8d7da', borderRadius: '4px' }}>
+                      <strong>Правильных ответов:</strong> {question.correctCount} из {question.totalAttempts} ({question.correctPercentage.toFixed(1)}%)
+                    </div>
+                    <div style={{ marginTop: '20px' }}>
+                      <h4>Варианты ответов:</h4>
+                      <ul style={{ listStyle: 'none', padding: 0, marginTop: '10px' }}>
+                        {question.options.map((opt, optIndex) => (
+                          <li key={optIndex} style={{ marginBottom: '10px', padding: '10px', background: optIndex === question.correctAnswer ? '#d4edda' : '#f5f5f5', borderRadius: '4px', borderLeft: optIndex === question.correctAnswer ? '4px solid #28a745' : 'none' }}>
+                            <strong>{opt}</strong>
+                            {optIndex === question.correctAnswer && <span style={{ color: '#28a745', marginLeft: '10px' }}>✓ Правильный ответ</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     );

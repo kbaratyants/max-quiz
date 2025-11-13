@@ -42,7 +42,8 @@ export interface Quiz {
   }[];
   authorId: string;
   authorName?: string;
-  uuid: string;
+  shortId: string;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -51,9 +52,11 @@ export interface MyQuiz {
   _id: string;
   title: string;
   description?: string;
+  shortId: string;
   createdAt: string;
   publicUrl?: string;
-  questionsCount: number;
+  questionsCount?: number;
+  isActive?: boolean;
 }
 
 export interface QuizStats {
@@ -76,6 +79,13 @@ export interface QuizDetailedStats {
     correctCount: number;
     correctPercentage: number;
   }[];
+}
+
+export interface QuizResult {
+  userId: string;
+  userName: string;
+  score: number;
+  submittedAt: string;
 }
 
 // Интерфейсы для Submission (ответов)
