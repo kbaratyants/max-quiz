@@ -75,10 +75,27 @@ export function shareContent(text: string, link: string) {
   const webApp = getWebApp();
   debugLog(`shareContent: webApp=${!!webApp}, isMaxWebApp=${isMaxWebApp()}`);
   
+  // Проверяем ограничения MAX API: максимум 200 символов для text и link
+  const MAX_LENGTH = 200;
+  // Убеждаемся, что параметры - строки (не null/undefined)
+  const safeText = (text || '').toString();
+  const safeLink = (link || '').toString();
+  const truncatedText = safeText.length > MAX_LENGTH ? safeText.substring(0, MAX_LENGTH) : safeText;
+  const truncatedLink = safeLink.length > MAX_LENGTH ? safeLink.substring(0, MAX_LENGTH) : safeLink;
+  
+  // Проверяем, что хотя бы один параметр не пустой (требование MAX API)
+  if (!truncatedText.trim() && !truncatedLink.trim()) {
+    debugLog('shareContent: Оба параметра пустые', 'error');
+    return false;
+  }
+  
+  debugLog(`shareContent: Усеченные параметры - text="${truncatedText}" (${truncatedText.length}), link="${truncatedLink}" (${truncatedLink.length})`);
+  
   if (isMaxWebApp() && webApp?.shareContent) {
     debugLog('shareContent: Вызываем webApp.shareContent');
     try {
-      webApp.shareContent(text, link);
+      // Передаем оба параметра как строки (даже если один пустой)
+      webApp.shareContent(truncatedText, truncatedLink);
       hapticFeedbackInternal('notification', 'success');
       debugLog('shareContent: Успешно вызван webApp.shareContent');
       return true;
@@ -91,7 +108,7 @@ export function shareContent(text: string, link: string) {
   // Fallback на Web Share API
   if (navigator.share) {
     debugLog('shareContent: Используем navigator.share');
-    navigator.share({ text, url: link }).catch((error: any) => {
+    navigator.share({ text: truncatedText, url: truncatedLink }).catch((error: any) => {
       debugLog(`shareContent: Ошибка navigator.share - ${error?.message || error}`, 'error');
     });
     return true;
@@ -106,10 +123,27 @@ export function shareMaxContent(text: string, link: string) {
   const webApp = getWebApp();
   debugLog(`shareMaxContent: webApp=${!!webApp}, isMaxWebApp=${isMaxWebApp()}, hasShareMaxContent=${!!webApp?.shareMaxContent}`);
   
+  // Проверяем ограничения MAX API: максимум 200 символов для text и link
+  const MAX_LENGTH = 200;
+  // Убеждаемся, что параметры - строки (не null/undefined)
+  const safeText = (text || '').toString();
+  const safeLink = (link || '').toString();
+  const truncatedText = safeText.length > MAX_LENGTH ? safeText.substring(0, MAX_LENGTH) : safeText;
+  const truncatedLink = safeLink.length > MAX_LENGTH ? safeLink.substring(0, MAX_LENGTH) : safeLink;
+  
+  // Проверяем, что хотя бы один параметр не пустой (требование MAX API)
+  if (!truncatedText.trim() && !truncatedLink.trim()) {
+    debugLog('shareMaxContent: Оба параметра пустые', 'error');
+    return false;
+  }
+  
+  debugLog(`shareMaxContent: Усеченные параметры - text="${truncatedText}" (${truncatedText.length}), link="${truncatedLink}" (${truncatedLink.length})`);
+  
   if (isMaxWebApp() && webApp?.shareMaxContent) {
     debugLog('shareMaxContent: Вызываем webApp.shareMaxContent');
     try {
-      webApp.shareMaxContent(text, link);
+      // Передаем оба параметра как строки (даже если один пустой)
+      webApp.shareMaxContent(truncatedText, truncatedLink);
       hapticFeedbackInternal('notification', 'success');
       debugLog('shareMaxContent: Успешно вызван webApp.shareMaxContent');
       return true;
