@@ -124,15 +124,15 @@ export default function TakeSurvey() {
     }
   }, [paramPublicId, loadQuizById, quiz, loading]);
 
-  // Включаем защиту от скриншотов при прохождении квиза в MAX
+  // Включаем защиту от скриншотов только при прохождении квиза (когда quiz загружен и не отправлен)
   useEffect(() => {
-    if (checkMaxWebApp() && quiz) {
+    if (checkMaxWebApp() && quiz && !submitted) {
       enableScreenCaptureProtection();
       return () => {
         disableScreenCaptureProtection();
       };
     }
-  }, [quiz]);
+  }, [quiz, submitted]);
 
   // Очистка таймера при размонтировании
   useEffect(() => {
@@ -308,12 +308,15 @@ export default function TakeSurvey() {
               <label
                 key={oIndex}
                 className={`radio-option ${answers[qIndex] === oIndex ? 'selected' : ''}`}
+                onClick={() => handleAnswer(qIndex, oIndex)}
+                onTouchStart={() => handleAnswer(qIndex, oIndex)}
               >
                 <input
                   type="radio"
                   name={`question-${qIndex}`}
                   checked={answers[qIndex] === oIndex}
                   onChange={() => handleAnswer(qIndex, oIndex)}
+                  style={{ pointerEvents: 'none' }}
                 />
                 <span>{option}</span>
               </label>
