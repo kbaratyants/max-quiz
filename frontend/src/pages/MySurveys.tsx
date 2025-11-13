@@ -6,7 +6,7 @@ import { copyToClipboard, shareContent, shareMaxContent, isMaxWebApp, setDebugTo
 import { useToastContext } from '../context/ToastContext';
 
 // Флаг для включения/выключения дебага
-const DEBUG_ENABLED = false;
+const DEBUG_ENABLED = true; // Временно включен для диагностики
 
 export default function MySurveys() {
   const toast = useToastContext();

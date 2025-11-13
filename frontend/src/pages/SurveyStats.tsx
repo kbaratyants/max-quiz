@@ -1,18 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { api, Quiz, QuizDetailedStats, QuizResult } from '../api';
+import { api, QuizDetailedStats, QuizResult } from '../api';
 import { useToastContext } from '../context/ToastContext';
 
 export default function SurveyStats() {
   const toast = useToastContext();
   const [searchParams] = useSearchParams();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [selectedStats, setSelectedStats] = useState<QuizDetailedStats | null>(null);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingResults, setLoadingResults] = useState(false);
-  const [loadingQuizId, setLoadingQuizId] = useState<string | null>(null); // ID квиза, который сейчас загружается
-  const loadingRef = useRef(false);
   const loadingStatsRef = useRef(false);
   const loadingResultsRef = useRef(false);
   const toastRef = useRef(toast);
@@ -22,33 +19,14 @@ export default function SurveyStats() {
     toastRef.current = toast;
   }, [toast]);
 
-  const loadQuizzes = useCallback(async () => {
-    // Защита от повторных запросов
-    if (loadingRef.current) {
-      return;
-    }
-    
-    loadingRef.current = true;
-    try {
-      setLoading(true);
-      const response = await api.get('/quizzes/my');
-      setQuizzes(response.data);
-    } catch (error) {
-      console.error('Ошибка загрузки квизов:', error);
-      toastRef.current.error('Не удалось загрузить список квизов');
-    } finally {
-      setLoading(false);
-      loadingRef.current = false;
-    }
-  }, []);
-
   const loadStats = useCallback(async (quizId: string) => {
     // Защита от повторных запросов
-    if (loadingStatsRef.current && loadingQuizId === quizId) {
+    if (loadingStatsRef.current) {
       return;
     }
     
     loadingStatsRef.current = true;
+    setLoading(true);
     try {
       const response = await api.get(`/quizzes/my/stats/${quizId}`);
       setSelectedStats(response.data);
@@ -60,13 +38,14 @@ export default function SurveyStats() {
         toastRef.current.error('Не удалось загрузить статистику');
       }
     } finally {
+      setLoading(false);
       loadingStatsRef.current = false;
     }
-  }, [loadingQuizId]);
+  }, []);
 
   const loadQuizResults = useCallback(async (quizId: string) => {
     // Защита от повторных запросов
-    if (loadingResultsRef.current && loadingQuizId === quizId) {
+    if (loadingResultsRef.current) {
       return;
     }
     
@@ -86,16 +65,33 @@ export default function SurveyStats() {
       setLoadingResults(false);
       loadingResultsRef.current = false;
     }
-  }, [loadingQuizId]);
+  }, []);
 
   useEffect(() => {
-    loadQuizzes();
     const quizId = searchParams.get('quizId');
     if (quizId) {
       loadStats(quizId);
       loadQuizResults(quizId);
+    } else {
+      setLoading(false);
     }
-  }, [loadQuizzes, loadStats, loadQuizResults, searchParams]);
+  }, [loadStats, loadQuizResults, searchParams]);
+
+  // Если нет quizId в URL, показываем сообщение
+  const quizId = searchParams.get('quizId');
+  if (!quizId) {
+    return (
+      <div className="container">
+        <div className="card">
+          <h2>Статистика</h2>
+          <p>Для просмотра статистики необходимо указать ID квиза в URL.</p>
+          <Link to="/my-surveys" className="btn btn-primary" style={{ marginTop: '15px', display: 'inline-block' }}>
+            Перейти к опросам
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="container"><div className="loading">Загрузка...</div></div>;
@@ -107,9 +103,9 @@ export default function SurveyStats() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h2>Статистика: {selectedStats.title}</h2>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={() => setSelectedStats(null)} className="btn btn-secondary">
-              ← Назад к списку
-            </button>
+            <Link to="/my-surveys" className="btn btn-secondary">
+              ← К опросам
+            </Link>
             <Link to="/" className="btn btn-secondary">
               На главную
             </Link>
@@ -211,60 +207,13 @@ export default function SurveyStats() {
     );
   }
 
+  // Показываем загрузку или ошибку, если статистика не загружена
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h2>Статистика по созданным квизам</h2>
-        <Link to="/" className="btn btn-secondary">
-          ← На главную
-        </Link>
+      <div className="card">
+        <h2>Загрузка статистики...</h2>
+        <p>Загрузка данных о квизе...</p>
       </div>
-
-      {quizzes.length === 0 ? (
-        <div className="card">
-          <p>Вы еще не создали ни одного квиза.</p>
-          <Link to="/create" className="btn btn-primary" style={{ marginTop: '15px', display: 'inline-block' }}>
-            Создать квиз
-          </Link>
-        </div>
-      ) : (
-        <div>
-          {quizzes.map((quiz) => (
-            <div key={quiz._id} className="card">
-              <h3>{quiz.title}</h3>
-              {quiz.description && (
-                <p style={{ color: '#666', marginTop: '5px' }}>{quiz.description}</p>
-              )}
-              <p style={{ color: '#666', marginTop: '5px' }}>
-                Вопросов: {quiz.questions?.length || 0} • Создан: {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('ru-RU') : 'Неизвестно'}
-              </p>
-              <button
-                onClick={async () => {
-                  // Обновляем URL с quizId, чтобы при перезагрузке страницы статистика загружалась
-                  const newSearchParams = new URLSearchParams(searchParams);
-                  newSearchParams.set('quizId', quiz._id);
-                  window.history.pushState({}, '', `/stats?${newSearchParams.toString()}`);
-                  setLoadingQuizId(quiz._id); // Устанавливаем ID перед загрузкой
-                  try {
-                    // Загружаем статистику и результаты параллельно
-                    await Promise.all([
-                      loadStats(quiz._id),
-                      loadQuizResults(quiz._id)
-                    ]);
-                  } finally {
-                    setLoadingQuizId(null); // Сбрасываем ID после завершения загрузки
-                  }
-                }}
-                className="btn btn-primary"
-                disabled={loadingQuizId === quiz._id}
-                style={{ marginTop: '15px' }}
-              >
-                {loadingQuizId === quiz._id ? 'Загрузка...' : 'Посмотреть статистику'}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

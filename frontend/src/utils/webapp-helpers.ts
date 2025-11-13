@@ -1,7 +1,7 @@
 import { getWebApp, isMaxWebApp as checkMaxWebApp } from './webapp';
 
 // Флаг для включения/выключения дебага (можно изменить на true для включения)
-const DEBUG_ENABLED = false;
+const DEBUG_ENABLED = true; // Временно включен для диагностики
 
 // Тип для функции показа тоста (опционально)
 type ToastFunction = ((message: string, type?: 'success' | 'error' | 'warning' | 'info') => void) | null;
@@ -138,23 +138,35 @@ export function shareMaxContent(text: string, link: string) {
   }
   
   debugLog(`shareMaxContent: Усеченные параметры - text="${truncatedText}" (${truncatedText.length}), link="${truncatedLink}" (${truncatedLink.length})`);
+  debugLog(`shareMaxContent: typeof webApp=${typeof webApp}, typeof shareMaxContent=${typeof webApp?.shareMaxContent}`);
   
-  if (isMaxWebApp() && webApp?.shareMaxContent) {
-    debugLog('shareMaxContent: Вызываем webApp.shareMaxContent');
-    try {
-      // Передаем оба параметра как строки (даже если один пустой)
-      webApp.shareMaxContent(truncatedText, truncatedLink);
-      hapticFeedbackInternal('notification', 'success');
-      debugLog('shareMaxContent: Успешно вызван webApp.shareMaxContent');
-      return true;
-    } catch (error: any) {
-      debugLog(`shareMaxContent: Ошибка при вызове webApp.shareMaxContent - ${error?.message || error}`, 'error');
-      return false;
-    }
+  if (!isMaxWebApp()) {
+    debugLog('shareMaxContent: Не в MAX WebApp, метод недоступен', 'error');
+    return false;
   }
   
-  debugLog('shareMaxContent: Условие не выполнено');
-  return false;
+  if (!webApp) {
+    debugLog('shareMaxContent: webApp не найден', 'error');
+    return false;
+  }
+  
+  if (!webApp.shareMaxContent) {
+    debugLog(`shareMaxContent: webApp.shareMaxContent не найден. Доступные методы: ${Object.keys(webApp).join(', ')}`, 'error');
+    return false;
+  }
+  
+  debugLog('shareMaxContent: Вызываем webApp.shareMaxContent');
+  try {
+    // Передаем оба параметра как строки (даже если один пустой)
+    webApp.shareMaxContent(truncatedText, truncatedLink);
+    hapticFeedbackInternal('notification', 'success');
+    debugLog('shareMaxContent: Успешно вызван webApp.shareMaxContent');
+    return true;
+  } catch (error: any) {
+    debugLog(`shareMaxContent: Ошибка при вызове webApp.shareMaxContent - ${error?.message || error}`, 'error');
+    debugLog(`shareMaxContent: Стек ошибки: ${error?.stack || 'нет стека'}`, 'error');
+    return false;
+  }
 }
 
 /**
