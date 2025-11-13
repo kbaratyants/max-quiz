@@ -70,6 +70,7 @@ export class BotService implements OnModuleInit {
     const quiz = await this.quizzesService.create(
       {
         title: 'Тест через бота',
+        description: 'Короткое описание теста',
         questions: [
           {
             question: 'Сколько будет 2 + 2?',
