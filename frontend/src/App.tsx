@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import Home from './pages/Home';
 import CreateSurvey from './pages/CreateSurvey';
@@ -26,7 +26,6 @@ function App() {
 function AppContent() {
   useWebApp(); // Настраиваем кнопку "Назад" и другие функции WebApp
   const navigate = useNavigate();
-  const location = useLocation();
   const startParamProcessedRef = useRef(false); // Флаг для отслеживания обработки start_param
   
   const userInfo = getUserInfoFromWebApp();
@@ -40,11 +39,6 @@ function AppContent() {
       return;
     }
 
-    // Проверяем start_param только на главной странице
-    if (location.pathname !== '/') {
-      return;
-    }
-
     const startParam = getStartParam();
     if (startParam) {
       console.log('[MAX WebApp] Обнаружен start_param:', startParam);
@@ -52,7 +46,8 @@ function AppContent() {
       // start_param содержит shortId квиза, переходим на страницу прохождения
       navigate(`/survey/${startParam}`, { replace: true });
     }
-  }, [location.pathname, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Выполняем только один раз при монтировании компонента
 
   return (
     <div className="app">

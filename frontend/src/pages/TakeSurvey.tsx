@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, Quiz, Submission } from '../api';
 import { hapticFeedback, enableScreenCaptureProtection, disableScreenCaptureProtection } from '../utils/webapp-helpers';
-import { isMaxWebApp as checkMaxWebApp, getStartParam } from '../utils/webapp';
+import { isMaxWebApp as checkMaxWebApp } from '../utils/webapp';
 import { useToastContext } from '../context/ToastContext';
 
 export default function TakeSurvey() {
@@ -20,6 +20,7 @@ export default function TakeSurvey() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadingQuizRef = useRef(false);
   const currentQuizIdRef = useRef<string | null>(null);
+  const lastAnswerRef = useRef<{ qIndex: number; oIndex: number; timestamp: number } | null>(null);
 
   const loadQuizById = useCallback(async (id: string) => {
     if (!id || id.trim() === '') {
@@ -107,22 +108,13 @@ export default function TakeSurvey() {
     }
   }, []);
 
-  // Загружаем квиз при изменении paramPublicId или start_param
+  // Загружаем квиз при изменении paramPublicId из URL
   useEffect(() => {
-    // Сначала проверяем paramPublicId из URL
     if (paramPublicId) {
       loadQuizById(paramPublicId);
-      return;
     }
 
-    // Если нет paramPublicId, проверяем start_param (при запуске через startapp=...)
-    const startParam = getStartParam();
-    if (startParam && !quiz && !loading) {
-      console.log('[TakeSurvey] Обнаружен start_param:', startParam);
-      setQuizId(startParam);
-      loadQuizById(startParam);
-    }
-  }, [paramPublicId, loadQuizById, quiz, loading]);
+  }, [paramPublicId]); // Убираем loadQuizById из зависимостей, чтобы избежать бесконечных ретраев
 
   // Включаем защиту от скриншотов только при прохождении квиза (когда quiz загружен и не отправлен)
   useEffect(() => {
@@ -152,6 +144,19 @@ export default function TakeSurvey() {
   };
 
   const handleAnswer = (questionIndex: number, optionIndex: number) => {
+    // Защита от двойного вызова (onTouchEnd + onClick на мобильных)
+    const now = Date.now();
+    const lastAnswer = lastAnswerRef.current;
+    if (
+      lastAnswer &&
+      lastAnswer.qIndex === questionIndex &&
+      lastAnswer.oIndex === optionIndex &&
+      now - lastAnswer.timestamp < 300 // 300ms - защита от двойного вызова
+    ) {
+      return;
+    }
+    
+    lastAnswerRef.current = { qIndex: questionIndex, oIndex: optionIndex, timestamp: now };
     hapticFeedback('selection');
     const newAnswers = [...answers];
     newAnswers[questionIndex] = optionIndex;
@@ -308,17 +313,24 @@ export default function TakeSurvey() {
               <label
                 key={oIndex}
                 className={`radio-option ${answers[qIndex] === oIndex ? 'selected' : ''}`}
-                onClick={(e) => {
+                htmlFor={`q${qIndex}-o${oIndex}`}
+                onClick={() => {
+                  // Обработка клика для десктопа
+                  handleAnswer(qIndex, oIndex);
+                }}
+                onTouchEnd={(e) => {
+                  // Для мобильных устройств обрабатываем touch события
                   e.preventDefault();
                   handleAnswer(qIndex, oIndex);
                 }}
               >
                 <input
                   type="radio"
+                  id={`q${qIndex}-o${oIndex}`}
                   name={`question-${qIndex}`}
                   checked={answers[qIndex] === oIndex}
                   onChange={() => handleAnswer(qIndex, oIndex)}
-                  readOnly
+                  style={{ pointerEvents: 'auto' }}
                 />
                 <span>{option}</span>
               </label>
