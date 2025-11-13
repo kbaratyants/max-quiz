@@ -122,7 +122,10 @@ export class QuizzesService {
   async closeQuiz(quizId: string, authorId: string) {
     const quiz = await this.quizModel.findById(quizId);
     if (!quiz) throw new NotFoundException('Квиз не найден');
-    if (quiz.authorId !== authorId) throw new ForbiddenException('Нет доступа');
+    // Приводим к строке для корректного сравнения (user.id может быть числом из MAX)
+    if (String(quiz.authorId) !== String(authorId)) {
+      throw new ForbiddenException('Нет доступа');
+    }
 
     quiz.isActive = false;
     await quiz.save();

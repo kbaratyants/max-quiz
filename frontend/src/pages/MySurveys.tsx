@@ -73,13 +73,29 @@ export default function MySurveys() {
     toast.warning('Закрытие квиза... После закрытия новые ответы приниматься не будут.');
     
     try {
-      await api.patch(`/quizzes/my/${quizId}/close`);
+      console.log('Закрытие квиза с ID:', quizId);
+      const response = await api.patch(`/quizzes/my/${quizId}/close`, {});
+      console.log('Ответ на закрытие квиза:', response.data);
       toast.success('Квиз успешно закрыт');
       // Перезагружаем список квизов
       loadQuizzes();
     } catch (error: any) {
       console.error('Ошибка закрытия квиза:', error);
-      toast.error(error.response?.data?.message || 'Не удалось закрыть квиз');
+      console.error('Детали ошибки:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else if (error.response?.status === 404) {
+        toast.error('Квиз не найден');
+      } else if (error.response?.status === 403) {
+        toast.error('У вас нет прав для закрытия этого квиза');
+      } else {
+        toast.error(`Не удалось закрыть квиз: ${error.message || 'Неизвестная ошибка'}`);
+      }
     }
   };
 
@@ -160,20 +176,34 @@ export default function MySurveys() {
 
                 {isExpanded && (
                   <div style={{ marginTop: '20px', padding: '20px', background: '#f5f5f5', borderRadius: '8px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '20px', alignItems: 'center' }}>
-                      <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      gap: '20px'
+                    }}>
+                      {/* Ссылка и кнопки */}
+                      <div style={{ minWidth: 0, width: '100%' }}>
                         <h4>Ссылка для прохождения:</h4>
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
                           <input
                             type="text"
                             value={publicUrl}
                             readOnly
-                            style={{ flex: '1 1 0', minWidth: '200px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }}
+                            style={{ 
+                              width: '100%',
+                              padding: '8px', 
+                              border: '1px solid #ddd', 
+                              borderRadius: '4px', 
+                              boxSizing: 'border-box',
+                              fontSize: '14px',
+                              wordBreak: 'break-all'
+                            }}
                           />
                           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             <button
                               onClick={() => handleCopy(publicUrl)}
                               className="btn btn-primary"
+                              style={{ flex: '0 0 auto' }}
                             >
                               Копировать
                             </button>
@@ -182,12 +212,14 @@ export default function MySurveys() {
                                 <button
                                   onClick={() => handleShare(quiz)}
                                   className="btn btn-secondary"
+                                  style={{ flex: '0 0 auto' }}
                                 >
                                   Поделиться в MAX
                                 </button>
                                 <button
                                   onClick={() => shareContent(`Квиз: ${quiz.title}`, publicUrl)}
                                   className="btn btn-secondary"
+                                  style={{ flex: '0 0 auto' }}
                                 >
                                   Поделиться
                                 </button>
@@ -195,14 +227,15 @@ export default function MySurveys() {
                             )}
                           </div>
                         </div>
-                        <p style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                        <p style={{ marginTop: '10px', fontSize: '14px', color: '#666', wordBreak: 'break-word' }}>
                           {quiz.shortId && (
                             <>Short ID: <code>{quiz.shortId}</code><br /></>
                           )}
-                          ID: <code>{quiz._id}</code>
+                          ID: <code style={{ fontSize: '12px', wordBreak: 'break-all' }}>{quiz._id}</code>
                         </p>
                       </div>
-                      <div style={{ textAlign: 'center' }}>
+                      {/* QR-код */}
+                      <div style={{ textAlign: 'center', alignSelf: 'center' }}>
                         <h4>QR-код:</h4>
                         <div style={{ padding: '15px', background: 'white', borderRadius: '8px', display: 'inline-block', marginTop: '10px' }}>
                           <QRCodeSVG value={publicUrl} size={150} />

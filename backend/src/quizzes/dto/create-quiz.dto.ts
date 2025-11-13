@@ -22,9 +22,10 @@ export class CreateQuizDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: '10 вопросов о JS', description: 'Описание квиза', required: false })
+  @ApiProperty({ example: '10 вопросов о JS', description: 'Описание квиза' })
   @IsString()
-  description?: string;
+  @IsNotEmpty()
+  description: string;
 
   @ApiProperty({ type: [QuestionDto], description: 'Список вопросов квиза' })
   @IsArray()

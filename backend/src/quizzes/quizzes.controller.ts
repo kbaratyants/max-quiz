@@ -8,6 +8,7 @@ import {
   ValidationPipe,
   Param,
   Patch,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBody, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { QuizzesService } from './quizzes.service';
@@ -133,6 +134,9 @@ export class QuizzesController {
   })
   async closeQuiz(@Param('id') quizId: string, @Req() req: Request) {
     const user = (req as any).user;
+    if (!user || !user.id) {
+      throw new ForbiddenException('Пользователь не авторизован');
+    }
     return this.quizzesService.closeQuiz(quizId, user.id);
   }
 
@@ -163,11 +167,17 @@ export class QuizzesController {
       },
     },
   })
-  async getQuizByShortId(@Param('shortId') shortId: string, @Req() req: Request) {
+  async getQuizByShortId(
+    @Param('shortId') shortId: string,
+    @Req() req: Request,
+  ) {
     const user = (req as any).user;
 
     try {
-      const quiz = await this.quizzesService.getQuizByShortIdForUser(shortId, user?.id);
+      const quiz = await this.quizzesService.getQuizByShortIdForUser(
+        shortId,
+        user?.id,
+      );
       if (!quiz) return { status: 'error', message: 'Квиз не найден' };
 
       return {

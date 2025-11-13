@@ -101,24 +101,48 @@ export default function CreateSurvey() {
 
     setLoading(true);
     try {
-      const response = await api.post('/quizzes', {
-        title,
-        description: description.trim() || undefined,
+      // Подготавливаем данные для отправки
+      const quizData: any = {
+        title: title.trim(),
+        description: description.trim() || '', // description обязателен
         questions: questions.map(q => ({
-          question: q.question,
-          options: q.options,
+          question: q.question.trim(),
+          options: q.options.map(opt => opt.trim()).filter(opt => opt.length > 0),
           correctAnswer: q.correctAnswer,
-        })),
-      });
+        })).filter(q => q.question.length > 0 && q.options.length >= 2),
+      };
+
+      console.log('Отправка данных квиза:', JSON.stringify(quizData, null, 2));
+
+      const response = await api.post('/quizzes', quizData);
       
       if (response.data.status === 'ok') {
         setCreatedQuiz(response.data.data);
       } else {
         throw new Error('Не удалось создать квиз');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка создания квиза:', error);
-      toast.error('Не удалось создать квиз');
+      
+      // Выводим детальную информацию об ошибке
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.message) {
+          // Если есть массив ошибок валидации
+          if (Array.isArray(errorData.message)) {
+            const messages = errorData.message.map((m: any) => 
+              typeof m === 'string' ? m : Object.values(m.constraints || {}).join(', ')
+            ).join('\n');
+            toast.error(`Ошибка валидации:\n${messages}`);
+          } else {
+            toast.error(errorData.message);
+          }
+        } else {
+          toast.error(`Ошибка: ${JSON.stringify(errorData)}`);
+        }
+      } else {
+        toast.error('Не удалось создать квиз');
+      }
     } finally {
       setLoading(false);
     }
