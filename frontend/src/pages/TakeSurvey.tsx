@@ -308,15 +308,17 @@ export default function TakeSurvey() {
               <label
                 key={oIndex}
                 className={`radio-option ${answers[qIndex] === oIndex ? 'selected' : ''}`}
-                onClick={() => handleAnswer(qIndex, oIndex)}
-                onTouchStart={() => handleAnswer(qIndex, oIndex)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleAnswer(qIndex, oIndex);
+                }}
               >
                 <input
                   type="radio"
                   name={`question-${qIndex}`}
                   checked={answers[qIndex] === oIndex}
                   onChange={() => handleAnswer(qIndex, oIndex)}
-                  style={{ pointerEvents: 'none' }}
+                  readOnly
                 />
                 <span>{option}</span>
               </label>

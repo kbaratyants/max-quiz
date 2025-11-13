@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Home from './pages/Home';
 import CreateSurvey from './pages/CreateSurvey';
 import TakeSurvey from './pages/TakeSurvey';
@@ -27,13 +27,20 @@ function AppContent() {
   useWebApp(); // Настраиваем кнопку "Назад" и другие функции WebApp
   const navigate = useNavigate();
   const location = useLocation();
+  const startParamProcessedRef = useRef(false); // Флаг для отслеживания обработки start_param
   
   const userInfo = getUserInfoFromWebApp();
   const isInMax = isMaxWebApp();
 
   // Обработка start_param при запуске приложения через startapp=...
+  // Выполняется только один раз при первой загрузке
   useEffect(() => {
-    // Проверяем start_param только на главной странице, чтобы не перехватывать навигацию
+    // Если уже обработали start_param, больше не обрабатываем
+    if (startParamProcessedRef.current) {
+      return;
+    }
+
+    // Проверяем start_param только на главной странице
     if (location.pathname !== '/') {
       return;
     }
@@ -41,6 +48,7 @@ function AppContent() {
     const startParam = getStartParam();
     if (startParam) {
       console.log('[MAX WebApp] Обнаружен start_param:', startParam);
+      startParamProcessedRef.current = true; // Помечаем как обработанный
       // start_param содержит shortId квиза, переходим на страницу прохождения
       navigate(`/survey/${startParam}`, { replace: true });
     }
