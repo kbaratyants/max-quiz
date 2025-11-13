@@ -2,11 +2,33 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, Quiz } from '../api';
-import { copyToClipboard, shareContent, shareMaxContent, isMaxWebApp } from '../utils/webapp-helpers';
+import { copyToClipboard, shareContent, shareMaxContent, isMaxWebApp, setDebugToast } from '../utils/webapp-helpers';
 import { useToastContext } from '../context/ToastContext';
+
+// Флаг для включения/выключения дебага
+const DEBUG_ENABLED = false;
 
 export default function MySurveys() {
   const toast = useToastContext();
+  
+  // Настраиваем дебаг-тосты при монтировании компонента
+  useEffect(() => {
+    if (DEBUG_ENABLED) {
+      setDebugToast((message: string, type?: 'success' | 'error' | 'warning' | 'info') => {
+        if (type === 'error') {
+          toast.error(message);
+        } else if (type === 'warning') {
+          toast.warning(message);
+        } else if (type === 'success') {
+          toast.success(message);
+        } else {
+          toast.info(message);
+        }
+      });
+    } else {
+      setDebugToast(null);
+    }
+  }, [toast]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
@@ -48,23 +70,36 @@ export default function MySurveys() {
   };
   
   const handleShare = (quiz: Quiz) => {
-    // Используем shortId для URL, если доступен, иначе _id
-    const id = quiz.shortId || quiz._id;
-    const publicUrl = `${window.location.origin}/survey/${id}`;
+    // Используем getPublicUrl для формирования ссылки в правильном формате
+    const publicUrl = getPublicUrl(quiz);
     const text = `Квиз: ${quiz.title}`;
+    
+    if (DEBUG_ENABLED) {
+      toast.info(`handleShare: text="${text}", url="${publicUrl}"`);
+    }
+    
     if (shareMaxContent(text, publicUrl)) {
-      return;
+      return true;
     }
     if (shareContent(text, publicUrl)) {
-      return;
+      return true;
     }
     handleCopy(publicUrl);
+    return false;
   };
 
   const getPublicUrl = (quiz: Quiz) => {
     // В ссылке используем shortId для читаемости
     const id = quiz.shortId || quiz._id;
-    return `${window.location.origin}/survey/${id}`;
+    if (!id) {
+      return '';
+    }
+    
+    // Формат для MAX: https://max.ru/botName?startapp=shortId
+    // Используем тот же формат, что и на бэкенде
+    const botName = import.meta.env.VITE_BOT_NAME || 't39_hakaton_bot';
+    const startParam = encodeURIComponent(id.toString());
+    return `https://max.ru/${botName}?startapp=${startParam}`;
   };
 
   const getQrCodeUrl = (quiz: Quiz) => {
@@ -216,8 +251,23 @@ export default function MySurveys() {
                               <>
                                 <button
                                   onClick={() => {
+                                    if (DEBUG_ENABLED) {
+                                      toast.info('Поделиться в MAX: начало');
+                                    }
+                                    const text = `Квиз: ${quiz.title}`;
+                                    
+                                    if (DEBUG_ENABLED) {
+                                      toast.info(`Параметры: text="${text}", url="${publicUrl}"`);
+                                      toast.info(`isMaxWebApp: ${isMaxWebApp()}`);
+                                      const webApp = window.WebApp;
+                                      toast.info(`WebApp доступен: ${!!webApp}, shareMaxContent: ${!!webApp?.shareMaxContent}`);
+                                    }
+                                    
                                     // Используем handleShare, который правильно обрабатывает shareMaxContent
-                                    handleShare(quiz);
+                                    const result = handleShare(quiz);
+                                    if (DEBUG_ENABLED) {
+                                      toast.info(`handleShare результат: ${result}`);
+                                    }
                                   }}
                                   className="btn btn-secondary"
                                   style={{ flex: '0 0 auto' }}
@@ -226,12 +276,27 @@ export default function MySurveys() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    // Для обычного шаринга используем shareContent
-                                    const id = quiz.shortId || quiz._id;
-                                    const url = `${window.location.origin}/survey/${id}`;
-                                    if (!shareContent(`Квиз: ${quiz.title}`, url)) {
-                                      // Если shareContent не сработал, копируем в буфер
-                                      handleCopy(url);
+                                    if (DEBUG_ENABLED) {
+                                      toast.info('Поделиться: начало');
+                                    }
+                                    const text = `Квиз: ${quiz.title}`;
+                                    
+                                    if (DEBUG_ENABLED) {
+                                      toast.info(`Параметры: text="${text}", url="${publicUrl}"`);
+                                      toast.info(`isMaxWebApp: ${isMaxWebApp()}`);
+                                      const webApp = window.WebApp;
+                                      toast.info(`WebApp доступен: ${!!webApp}, shareContent: ${!!webApp?.shareContent}, navigator.share: ${!!navigator.share}`);
+                                    }
+                                    
+                                    const result = shareContent(text, publicUrl);
+                                    if (DEBUG_ENABLED) {
+                                      toast.info(`shareContent результат: ${result}`);
+                                    }
+                                    if (!result) {
+                                      if (DEBUG_ENABLED) {
+                                        toast.warning('shareContent не сработал, копируем в буфер');
+                                      }
+                                      handleCopy(publicUrl);
                                     }
                                   }}
                                   className="btn btn-secondary"
@@ -243,12 +308,11 @@ export default function MySurveys() {
                             )}
                           </div>
                         </div>
-                        <p style={{ marginTop: '10px', fontSize: '14px', color: '#666', wordBreak: 'break-word' }}>
-                          {quiz.shortId && (
-                            <>Short ID: <code>{quiz.shortId}</code><br /></>
-                          )}
-                          ID: <code style={{ fontSize: '12px', wordBreak: 'break-all' }}>{quiz._id}</code>
-                        </p>
+                        {quiz.shortId && (
+                          <p style={{ marginTop: '10px', fontSize: '14px', color: '#666', wordBreak: 'break-word' }}>
+                            ID: <code style={{ fontSize: '14px', background: '#e9ecef', padding: '2px 6px', borderRadius: '4px' }}>{quiz.shortId}</code>
+                          </p>
+                        )}
                       </div>
                       {/* QR-код */}
                       <div style={{ textAlign: 'center', alignSelf: 'center' }}>

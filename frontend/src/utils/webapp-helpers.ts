@@ -1,5 +1,38 @@
 import { getWebApp, isMaxWebApp as checkMaxWebApp } from './webapp';
 
+// Флаг для включения/выключения дебага (можно изменить на true для включения)
+const DEBUG_ENABLED = false;
+
+// Тип для функции показа тоста (опционально)
+type ToastFunction = ((message: string, type?: 'success' | 'error' | 'warning' | 'info') => void) | null;
+
+// Глобальная переменная для хранения toast функции
+let debugToast: ToastFunction = null;
+
+/**
+ * Устанавливает функцию для показа дебаг-тостов
+ */
+export function setDebugToast(toast: ToastFunction) {
+  debugToast = toast;
+}
+
+/**
+ * Показывает дебаг-сообщение (тост или console.log)
+ */
+function debugLog(message: string, type: 'info' | 'error' = 'info') {
+  if (!DEBUG_ENABLED) return;
+  
+  if (debugToast) {
+    debugToast(message, type);
+  } else {
+    if (type === 'error') {
+      console.error('[DEBUG]', message);
+    } else {
+      console.log('[DEBUG]', message);
+    }
+  }
+}
+
 export function isMaxWebApp(): boolean {
   return checkMaxWebApp();
 }
@@ -38,32 +71,55 @@ export function copyToClipboard(text: string): Promise<void> {
 }
 
 export function shareContent(text: string, link: string) {
+  debugLog(`shareContent: text="${text}", link="${link}"`);
   const webApp = getWebApp();
+  debugLog(`shareContent: webApp=${!!webApp}, isMaxWebApp=${isMaxWebApp()}`);
   
   if (isMaxWebApp() && webApp?.shareContent) {
-    webApp.shareContent(text, link);
-    hapticFeedbackInternal('notification', 'success');
-    return true;
+    debugLog('shareContent: Вызываем webApp.shareContent');
+    try {
+      webApp.shareContent(text, link);
+      hapticFeedbackInternal('notification', 'success');
+      debugLog('shareContent: Успешно вызван webApp.shareContent');
+      return true;
+    } catch (error: any) {
+      debugLog(`shareContent: Ошибка при вызове webApp.shareContent - ${error?.message || error}`, 'error');
+      return false;
+    }
   }
   
   // Fallback на Web Share API
   if (navigator.share) {
-    navigator.share({ text, url: link }).catch(() => {});
+    debugLog('shareContent: Используем navigator.share');
+    navigator.share({ text, url: link }).catch((error: any) => {
+      debugLog(`shareContent: Ошибка navigator.share - ${error?.message || error}`, 'error');
+    });
     return true;
   }
   
+  debugLog('shareContent: Ни один метод не доступен');
   return false;
 }
 
 export function shareMaxContent(text: string, link: string) {
+  debugLog(`shareMaxContent: text="${text}", link="${link}"`);
   const webApp = getWebApp();
+  debugLog(`shareMaxContent: webApp=${!!webApp}, isMaxWebApp=${isMaxWebApp()}, hasShareMaxContent=${!!webApp?.shareMaxContent}`);
   
   if (isMaxWebApp() && webApp?.shareMaxContent) {
-    webApp.shareMaxContent(text, link);
-    hapticFeedbackInternal('notification', 'success');
-    return true;
+    debugLog('shareMaxContent: Вызываем webApp.shareMaxContent');
+    try {
+      webApp.shareMaxContent(text, link);
+      hapticFeedbackInternal('notification', 'success');
+      debugLog('shareMaxContent: Успешно вызван webApp.shareMaxContent');
+      return true;
+    } catch (error: any) {
+      debugLog(`shareMaxContent: Ошибка при вызове webApp.shareMaxContent - ${error?.message || error}`, 'error');
+      return false;
+    }
   }
   
+  debugLog('shareMaxContent: Условие не выполнено');
   return false;
 }
 
