@@ -19,9 +19,9 @@ services:
 
   backend:
     build:
-      <<: *restart-policy
       context: ./backend
       dockerfile: Dockerfile
+    <<: *restart-policy
     container_name: max-quiz-backend
     ports:
       - "3000:3000"
