@@ -15,9 +15,9 @@ function hapticFeedbackInternal(
     }
 
     if (type === 'impact' && style && ['soft', 'light', 'medium', 'heavy', 'rigid'].includes(style)) {
-        webApp.HapticFeedback.impactOccurred(style as 'soft' | 'light' | 'medium' | 'heavy' | 'rigid');
+        webApp.HapticFeedback.impactOccurred(style as any);
     } else if (type === 'notification' && style && ['error', 'success', 'warning'].includes(style)) {
-        webApp.HapticFeedback.notificationOccurred(style as 'error' | 'success' | 'warning');
+        webApp.HapticFeedback.notificationOccurred(style as any);
     } else if (type === 'selection') {
         webApp.HapticFeedback.selectionChanged();
     }
@@ -35,14 +35,19 @@ export function copyToClipboard(text: string): Promise<void> {
     return navigator.clipboard.writeText(text);
 }
 
-export function shareContent(text: string, link: string) {
+export function shareContent(params: { text: string; link: string }): boolean {
+    const { text, link } = params || {};
     const webApp = getWebApp();
 
     const MAX_LENGTH = 200;
     const safeText = (text || '').toString();
     const safeLink = (link || '').toString();
-    const truncatedText = safeText.length > MAX_LENGTH ? safeText.substring(0, MAX_LENGTH) : safeText;
-    const truncatedLink = safeLink.length > MAX_LENGTH ? safeLink.substring(0, MAX_LENGTH) : safeLink;
+
+    const truncatedText =
+        safeText.length > MAX_LENGTH ? safeText.substring(0, MAX_LENGTH) : safeText;
+
+    const truncatedLink =
+        safeLink.length > MAX_LENGTH ? safeLink.substring(0, MAX_LENGTH) : safeLink;
 
     if (!truncatedText.trim() && !truncatedLink.trim()) {
         return false;
@@ -58,7 +63,7 @@ export function shareContent(text: string, link: string) {
                         webApp.offEvent('WebAppShare', shareHandler);
                     }
 
-                    if (eventData.status === 'shared') {
+                    if (eventData?.status === 'shared') {
                         hapticFeedbackInternal('notification', 'success');
                     }
                 };
@@ -88,7 +93,8 @@ export function shareContent(text: string, link: string) {
     return false;
 }
 
-export function shareMaxContent(text: string, link: string) {
+export function shareMaxContent(params: { text: string; link: string }): boolean {
+    const { text, link } = params || {};
     const webApp = getWebApp();
 
     if (!isMaxWebApp() || !webApp) return false;
@@ -97,8 +103,11 @@ export function shareMaxContent(text: string, link: string) {
     const safeText = (text || '').toString().trim();
     const safeLink = (link || '').toString().trim();
 
-    const truncatedText = safeText.length > MAX_LENGTH ? safeText.substring(0, MAX_LENGTH) : safeText;
-    const truncatedLink = safeLink.length > MAX_LENGTH ? safeLink.substring(0, MAX_LENGTH) : safeLink;
+    const truncatedText =
+        safeText.length > MAX_LENGTH ? safeText.substring(0, MAX_LENGTH) : safeText;
+
+    const truncatedLink =
+        safeLink.length > MAX_LENGTH ? safeLink.substring(0, MAX_LENGTH) : safeLink;
 
     let finalText = truncatedText;
     let finalLink = truncatedLink;
@@ -111,7 +120,7 @@ export function shareMaxContent(text: string, link: string) {
 
     if (webApp.onEvent) {
         shareHandler = (eventData: any) => {
-            if (eventData.status === 'shared') {
+            if (eventData?.status === 'shared') {
                 hapticFeedbackInternal('notification', 'success');
             }
         };
@@ -119,16 +128,18 @@ export function shareMaxContent(text: string, link: string) {
     }
 
     try {
-        webApp.shareMaxContent?.({ text: finalText, link: finalLink });
+        webApp?.shareMaxContent?.({ text: finalText, link: finalLink });
     } catch {
-        // игнорируем
+        // ignore
+    } finally {
+        if (webApp?.offEvent && shareHandler) {
+            try {
+                webApp.offEvent('WebAppMaxShare', shareHandler);
+            } catch {}
+        }
     }
 
-    if (webApp?.offEvent && shareHandler) {
-        webApp.offEvent('WebAppMaxShare', shareHandler);
-    }
-
-    return false;
+    return true;
 }
 
 export function extractQuizIdFromQR(qrResult: string): string | null {
@@ -155,13 +166,15 @@ export function openCodeReader(fileSelect: boolean = true): Promise<string> {
 
     if (isMaxWebApp() && webApp?.openCodeReader) {
         hapticFeedbackInternal('impact', 'light');
+
         return webApp.openCodeReader(fileSelect)
             .then((result) => {
                 let value: string;
+
                 if (typeof result === 'string') {
                     value = result;
-                } else if (result && typeof result === 'object' && 'value' in result && typeof result.value === 'string') {
-                    value = result.value;
+                } else if (result && typeof result === 'object' && 'value' in result) {
+                    value = (result as any).value;
                 } else {
                     throw new Error(`QR code parsing error: ${JSON.stringify(result)}`);
                 }
@@ -171,7 +184,8 @@ export function openCodeReader(fileSelect: boolean = true): Promise<string> {
                     hapticFeedbackInternal('notification', 'success');
                     return trimmedValue;
                 }
-                throw new Error(`QR code empty: ${JSON.stringify(value)}`);
+
+                throw new Error(`QR empty: ${JSON.stringify(value)}`);
             })
             .catch((error: any) => {
                 if (error?.code === 'client.open_code_reader.cancelled') {
@@ -179,7 +193,7 @@ export function openCodeReader(fileSelect: boolean = true): Promise<string> {
                 } else if (error?.code === 'client.open_code_reader.permission_denied') {
                     throw new Error('Нет доступа к камере');
                 } else if (error?.code === 'client.open_code_reader.not_supported') {
-                    throw new Error('Камера не поддерживается на этом устройстве');
+                    throw new Error('Камера не поддерживается');
                 }
 
                 throw new Error(error?.message || 'QR Reader Error');
