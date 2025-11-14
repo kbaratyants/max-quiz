@@ -121,19 +121,21 @@ if (typeof window !== 'undefined' && !window.WebApp) {
     openMaxLink: (url: string) => {
       console.log('[mock WebApp] openMaxLink:', url);
     },
-    shareContent: (text: string, link: string) => {
-      if (navigator.share) {
-        navigator.share({ text, url: link }).catch(() => {});
-      } else {
-        alert(`[mock share] ${text}\n${link}`);
-      }
-      console.log('[mock WebApp] shareContent:', text, link);
-    },
-    shareMaxContent: (text: string, link: string) => {
-      alert(`[mock shareMax] ${text}\n${link}`);
-      console.log('[mock WebApp] shareMaxContent:', text, link);
-    },
-    openCodeReader: (fileSelect?: boolean) => {
+      shareContent: ({ text, link }: { text: string; link: string }) => {
+          if (navigator.share) {
+              navigator.share({ text, url: link }).catch(() => {});
+          } else {
+              alert(`[mock share] ${text}\n${link}`);
+          }
+          console.log('[mock WebApp] shareContent:', text, link);
+      },
+
+      shareMaxContent: ({ text, link }: { text: string; link: string }) => {
+          alert(`[mock shareMax] ${text}\n${link}`);
+          console.log('[mock WebApp] shareMaxContent:', text, link);
+      },
+
+      openCodeReader: (fileSelect?: boolean) => {
       const code = prompt('Введите QR-код для тестирования:');
       console.log('[mock WebApp] openCodeReader:', fileSelect, code);
       return Promise.resolve(code || '');

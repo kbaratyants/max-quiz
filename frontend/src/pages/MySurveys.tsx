@@ -2,33 +2,13 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, Quiz } from '../api';
-import { copyToClipboard, shareContent, shareMaxContent, isMaxWebApp, setDebugToast } from '../utils/webapp-helpers';
+import { copyToClipboard, shareContent, shareMaxContent, isMaxWebApp } from '../utils/webapp-helpers';
 import { useToastContext } from '../context/ToastContext';
 
-// Флаг для включения/выключения дебага
-const DEBUG_ENABLED = true; // Временно включен для диагностики
 
 export default function MySurveys() {
   const toast = useToastContext();
-  
-  // Настраиваем дебаг-тосты при монтировании компонента
-  useEffect(() => {
-    if (DEBUG_ENABLED) {
-      setDebugToast((message: string, type?: 'success' | 'error' | 'warning' | 'info') => {
-        if (type === 'error') {
-          toast.error(message);
-        } else if (type === 'warning') {
-          toast.warning(message);
-        } else if (type === 'success') {
-          toast.success(message);
-        } else {
-          toast.info(message);
-        }
-      });
-    } else {
-      setDebugToast(null);
-    }
-  }, [toast]);
+
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
@@ -73,13 +53,13 @@ export default function MySurveys() {
     // Используем getPublicUrl для формирования ссылки в правильном формате
     const publicUrl = getPublicUrl(quiz);
     const text = `Квиз: ${quiz.title}`;
-    
-    if (shareMaxContent(text, publicUrl)) {
-      return true;
-    }
-    if (shareContent(text, publicUrl)) {
-      return true;
-    }
+
+      if (shareMaxContent({ text, link: publicUrl })) {
+          return true;
+      }
+      if (shareContent({ text, link: publicUrl })) {
+          return true;
+      }
     handleCopy(publicUrl);
     return false;
   };
@@ -104,8 +84,6 @@ export default function MySurveys() {
   };
 
   const handleCloseQuiz = async (quizId: string) => {
-    // Используем toast для подтверждения вместо confirm
-    // Показываем предупреждение, но все равно закрываем
     toast.warning('Закрытие квиза... После закрытия новые ответы приниматься не будут.');
     
     try {
@@ -258,7 +236,7 @@ export default function MySurveys() {
                                 <button
                                   onClick={() => {
                                     const text = `Квиз: ${quiz.title}`;
-                                    const result = shareContent(text, publicUrl);
+                                    const result = shareContent({ text, link: publicUrl });
                                     if (!result) {
                                       handleCopy(publicUrl);
                                     }

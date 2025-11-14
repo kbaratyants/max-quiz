@@ -59,21 +59,24 @@ export default function CreateSurvey() {
     await copyToClipboard(text);
     toast.success('Ссылка скопирована в буфер обмена!');
   };
-  
-  const handleShare = (text: string, link: string) => {
-    if (shareMaxContent(text, link)) {
-      return;
-    }
-    if (shareContent(text, link)) {
-      return;
-    }
-    // Fallback на копирование
-    handleCopy(link);
-  };
+
+    const handleShare = (text: string, link: string) => {
+        const payload = { text, link };
+
+        if (shareMaxContent(payload)) {
+            return;
+        }
+        if (shareContent(payload)) {
+            return;
+        }
+
+        // Fallback на копирование
+        handleCopy(link);
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Валидация
     if (!title.trim()) {
       toast.warning('Введите название квиза');
@@ -116,7 +119,7 @@ export default function CreateSurvey() {
       console.log('Отправка данных квиза:', JSON.stringify(quizData, null, 2));
 
       const response = await api.post('/quizzes', quizData);
-      
+
       if (response.data.status === 'ok') {
         setCreatedQuiz(response.data.data);
       } else {
@@ -124,14 +127,14 @@ export default function CreateSurvey() {
       }
     } catch (error: any) {
       console.error('Ошибка создания квиза:', error);
-      
+
       // Выводим детальную информацию об ошибке
       if (error.response?.data) {
         const errorData = error.response.data;
         if (errorData.message) {
           // Если есть массив ошибок валидации
           if (Array.isArray(errorData.message)) {
-            const messages = errorData.message.map((m: any) => 
+            const messages = errorData.message.map((m: any) =>
               typeof m === 'string' ? m : Object.values(m.constraints || {}).join(', ')
             ).join('\n');
             toast.error(`Ошибка валидации:\n${messages}`);
@@ -155,7 +158,7 @@ export default function CreateSurvey() {
       <div className="container">
         <div className="card" style={{ textAlign: 'center' }}>
           <h2>Квиз успешно создан! 🎉</h2>
-          
+
           <div style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
             <div>
               <h3>Ссылка для прохождения:</h3>
@@ -181,8 +184,8 @@ export default function CreateSurvey() {
                       Поделиться в MAX
                     </button>
                     <button
-                      onClick={() => shareContent(`Квиз: ${title}`, createdQuiz.publicUrl)}
-                      className="btn btn-secondary"
+                        onClick={() => shareContent({ text: `Квиз: ${title}`, link: createdQuiz.publicUrl })}
+                        className="btn btn-secondary"
                     >
                       Поделиться
                     </button>
@@ -277,7 +280,7 @@ export default function CreateSurvey() {
                     name={`correct-${qIndex}`}
                     checked={question.correctAnswer === oIndex}
                     onChange={() => updateQuestion(qIndex, 'correctAnswer', oIndex)}
-                    style={{ 
+                    style={{
                       width: '18px',
                       height: '18px',
                       minWidth: '18px',
@@ -291,10 +294,10 @@ export default function CreateSurvey() {
                     onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
                     placeholder={`Вариант ${oIndex + 1}`}
                     required
-                    style={{ 
+                    style={{
                       flex: '1 1 0',
                       minWidth: '150px',
-                      padding: '10px', 
+                      padding: '10px',
                       fontSize: '16px',
                       border: '1px solid #ddd',
                       borderRadius: '4px',

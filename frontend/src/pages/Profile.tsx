@@ -42,11 +42,10 @@ export default function Profile() {
             <div style={{ marginBottom: '10px' }}>
               <strong>ID:</strong> {userInfo.id}
             </div>
-            {userInfo.languageCode && (
-              <div style={{ marginBottom: '10px' }}>
-                <strong>Язык:</strong> {userInfo.languageCode}
-              </div>
-            )}
+              {/* <div style={{ marginBottom: '10px' }}>
+  <strong>Язык:</strong> {userInfo.languageCode}
+</div> */}
+
           </div>
         </div>
       ) : (
