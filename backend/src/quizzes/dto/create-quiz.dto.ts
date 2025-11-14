@@ -1,13 +1,25 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 class QuestionDto {
-  @ApiProperty({ example: 'Что выведет console.log(typeof null)?', description: 'Текст вопроса' })
+  @ApiProperty({
+    example: 'Что выведет console.log(typeof null)?',
+    description: 'Текст вопроса',
+  })
   @IsString()
   question: string;
 
-  @ApiProperty({ example: ['null', 'object', 'undefined', 'number'], description: 'Варианты ответов' })
+  @ApiProperty({
+    example: ['null', 'object', 'undefined', 'number'],
+    description: 'Варианты ответов',
+  })
   @IsArray()
   options: string[];
 
@@ -24,7 +36,6 @@ export class CreateQuizDto {
 
   @ApiProperty({ example: '10 вопросов о JS', description: 'Описание квиза' })
   @IsString()
-  @IsNotEmpty()
   description: string;
 
   @ApiProperty({ type: [QuestionDto], description: 'Список вопросов квиза' })

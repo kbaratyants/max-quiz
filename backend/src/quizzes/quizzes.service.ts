@@ -19,7 +19,6 @@ export class QuizzesService {
   ) {}
 
   async create(dto: CreateQuizDto, user: any) {
-
     let shortId: string;
     do {
       shortId = nanoid(8).toUpperCase();
@@ -157,7 +156,10 @@ export class QuizzesService {
 
     if (userId) {
       // Проверяем, проходил ли уже пользователь этот квиз
-      const existing = await this.submissionModel.findOne({ quizId: quiz._id, userId });
+      const existing = await this.submissionModel.findOne({
+        quizId: quiz._id,
+        userId,
+      });
       if (existing) {
         throw new BadRequestException('Вы уже проходили этот квиз');
       }
