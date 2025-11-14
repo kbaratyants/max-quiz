@@ -194,6 +194,33 @@ export default function CreateSurvey() {
               </div>
             </div>
 
+            {createdQuiz.shortId && (
+              <div>
+                <h3>ID квиза:</h3>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+                  <code
+                    style={{
+                      padding: '10px 15px',
+                      fontSize: '16px',
+                      background: '#e9ecef',
+                      borderRadius: '4px',
+                      fontFamily: 'monospace',
+                      wordBreak: 'break-all',
+                      maxWidth: '100%'
+                    }}
+                  >
+                    {createdQuiz.shortId}
+                  </code>
+                  <button
+                    onClick={() => handleCopy(createdQuiz.shortId!)}
+                    className="btn btn-secondary"
+                  >
+                    Копировать ID
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <h3>QR-код:</h3>
               <div style={{ padding: '20px', background: 'white', borderRadius: '8px', display: 'inline-block' }}>
