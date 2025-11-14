@@ -25,7 +25,7 @@ export class BotService implements OnModuleInit {
     ]);
 
     this.bot.command('start', (ctx) => this.handleStart(ctx));
-    this.bot.command('hello', (ctx) => this.handleHello(ctx));
+    this.bot.command('info', (ctx) => this.handleInfo(ctx));
 
     this.bot.start();
     this.logger.log('✅ MAX Quiz Bot запущен');
@@ -44,7 +44,7 @@ export class BotService implements OnModuleInit {
     );
   }
 
-  private async handleHello(ctx: Context) {
+  private async handleInfo(ctx: Context) {
     await ctx.reply(
       `📚 **Что умеет MAX Quiz?**\n\n` +
       `• Создание тестов за 1 минуту\n` +
