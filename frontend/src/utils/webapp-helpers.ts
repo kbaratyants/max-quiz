@@ -223,119 +223,59 @@ export function shareMaxContent(text: string, link: string) {
   }
   
   // Согласно документации MAX Bridge, shareMaxContent работает через события
-  // Событие WebAppMaxShare возвращает результат с requestId, status и error
+  // Но если события не приходят, пробуем разные варианты синхронно
   let shareHandler: ((eventData: any) => void) | null = null;
-  let isHandled = false;
   
-  // Функция для обработки результата события
-  const createEventHandler = () => {
-    return (eventData: any) => {
+  // Подписываемся на событие один раз для всех вариантов (если поддерживается)
+  if (webApp.onEvent) {
+    shareHandler = (eventData: any) => {
       debugLog(`shareMaxContent: Событие получено! Данные: ${JSON.stringify(eventData)}`);
-      
-      if (isHandled) {
-        debugLog(`shareMaxContent: Событие уже обработано, игнорируем`);
-        return;
-      }
-      
-      isHandled = true;
-      
-      // Отписываемся от события после получения результата
-      if (webApp?.offEvent && shareHandler) {
-        debugLog(`shareMaxContent: Отписываемся от события`);
-        webApp.offEvent('WebAppMaxShare', shareHandler);
-      }
       
       if (eventData.status === 'shared') {
         hapticFeedbackInternal('notification', 'success');
         debugLog('shareMaxContent: Успешно поделились!', 'info', true);
       } else if (eventData.status === 'cancelled') {
-        debugLog('shareMaxContent: Пользователь отменил шаринг', 'info', true);
+        debugLog('shareMaxContent: Пользователь отменил шаринг', 'info');
       } else if (eventData.error) {
         const errorCode = eventData.error.code || eventData.error;
         debugLog(`shareMaxContent: Ошибка шаринга: ${errorCode}`, 'error', true);
-        
-        // Если ошибка invalid_params, пробуем другие варианты
-        if (errorCode === 'client.web_app_max_share.invalid_params') {
-          debugLog('shareMaxContent: Получена ошибка invalid_params, пробуем другие варианты', 'error', true);
-        }
-      } else {
-        debugLog(`shareMaxContent: Неизвестный формат ответа: ${JSON.stringify(eventData)}`, 'error', true);
       }
     };
-  };
+    webApp.onEvent('WebAppMaxShare', shareHandler);
+    debugLog('shareMaxContent: Подписка на событие выполнена');
+  }
   
-  // Пробуем разные варианты передачи параметров
-  const tryShare = (textParam: string, linkParam: string, variant: string): boolean => {
-    if (isHandled) return false; // Уже обработано
-    if (!webApp.shareMaxContent) return false; // Метод недоступен
-    
+  // Пробуем разные варианты передачи параметров последовательно
+  const variants = [
+    { text: finalText, link: finalLink, name: '1 (оба параметра: text + link)' },
+    { text: finalLink, link: finalText, name: '2 (link в text, text в link)' },
+    { text: finalText, link: finalText, name: '3 (text в обоих параметрах)' },
+    { text: finalLink, link: finalLink, name: '4 (link в обоих параметрах)' },
+  ];
+  
+  // Пробуем варианты последовательно
+  for (const variant of variants) {
     try {
-      // Подписываемся на событие перед вызовом
-      if (webApp.onEvent) {
-        shareHandler = createEventHandler();
-        webApp.onEvent('WebAppMaxShare', shareHandler);
-        debugLog(`shareMaxContent: Подписка на событие выполнена (${variant})`);
-      }
+      debugLog(`shareMaxContent: Пробуем вариант ${variant.name} - text="${variant.text}", link="${variant.link}"`);
+      webApp.shareMaxContent(variant.text, variant.link);
+      debugLog(`shareMaxContent: Вызов выполнен без исключения (${variant.name})`, 'info', true);
       
-      debugLog(`shareMaxContent: Вариант ${variant} - text="${textParam}", link="${linkParam}"`);
-      webApp.shareMaxContent(textParam, linkParam);
-      debugLog(`shareMaxContent: Вызов выполнен (${variant}), ждем результат через событие`, 'info', true);
+      // Если метод не выбросил исключение, считаем что вызов успешен
+      // Событие может прийти позже, но мы не ждем его
       return true;
     } catch (error: any) {
-      debugLog(`shareMaxContent: Вариант ${variant} выбросил исключение: ${error?.message || error}`, 'error');
-      if (webApp?.offEvent && shareHandler) {
-        webApp.offEvent('WebAppMaxShare', shareHandler);
-      }
-      return false;
+      debugLog(`shareMaxContent: Вариант ${variant.name} выбросил исключение: ${error?.message || error}`, 'error');
+      // Продолжаем пробовать следующий вариант
     }
-  };
-  
-  try {
-    // Вариант 1: стандартный - оба параметра (text и link)
-    // Это основной вариант согласно документации
-    if (tryShare(finalText, finalLink, '1 (оба параметра: text + link)')) {
-      setTimeout(() => {
-        if (!isHandled) {
-          debugLog('shareMaxContent: Событие не получено за 3 секунды, пробуем следующий вариант', 'error', true);
-          isHandled = false; // Сбрасываем флаг для следующей попытки
-        }
-      }, 3000);
-      return true;
-    }
-    
-    // Вариант 2: только ссылка в обоих параметрах (если текст пустой)
-    if (!truncatedText && truncatedLink) {
-      if (tryShare(truncatedLink, truncatedLink, '2 (link в обоих параметрах)')) {
-        setTimeout(() => {
-          if (!isHandled) {
-            debugLog('shareMaxContent: Событие не получено за 3 секунды', 'error', true);
-          }
-        }, 3000);
-        return true;
-      }
-    }
-    
-    // Вариант 3: ссылка в text, текст в link (наоборот) - на случай если порядок важен
-    if (truncatedText && truncatedLink) {
-      if (tryShare(truncatedLink, truncatedText, '3 (link в text, text в link)')) {
-        setTimeout(() => {
-          if (!isHandled) {
-            debugLog('shareMaxContent: Событие не получено за 3 секунды', 'error', true);
-          }
-        }, 3000);
-        return true;
-      }
-    }
-    
-    debugLog('shareMaxContent: Все варианты не сработали', 'error', true);
-    return false;
-  } catch (error: any) {
-    debugLog(`shareMaxContent: Критическая ошибка: ${error?.message || error}`, 'error', true);
-    if (webApp?.offEvent && shareHandler) {
-      webApp.offEvent('WebAppMaxShare', shareHandler);
-    }
-    return false;
   }
+  
+  // Если все варианты выбросили исключение
+  if (webApp?.offEvent && shareHandler) {
+    webApp.offEvent('WebAppMaxShare', shareHandler);
+  }
+  
+  debugLog('shareMaxContent: Все варианты выбросили исключение', 'error', true);
+  return false;
 }
 
 /**
