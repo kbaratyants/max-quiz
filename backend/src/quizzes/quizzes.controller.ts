@@ -50,6 +50,7 @@ export class QuizzesController {
       status: 'ok',
       data: {
         quizId: result.quiz._id,
+        shortId: result.shortId,
         publicUrl: result.publicUrl,
       },
     };

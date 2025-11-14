@@ -38,7 +38,7 @@ export class QuizzesService {
     const publicUrl = `https://max.ru/${botName}?startapp=${startParam}`;
 
     //const publicUrl = `${process.env.BASE_URL}/api/quizzes/${quiz._id}`;
-    return { quiz, publicUrl };
+    return { quiz, publicUrl, shortId };
   }
 
   async findAll() {
