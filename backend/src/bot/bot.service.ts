@@ -21,13 +21,11 @@ export class BotService implements OnModuleInit {
 
     this.bot.api.setMyCommands([
       { name: 'start', description: 'Приветствие' },
-      { name: 'hello', description: 'О боте и мини-аппе' },
-      { name: 'app', description: 'Открыть мини-приложение' },
+      { name: 'info', description: 'О боте и мини-аппе' },
     ]);
 
     this.bot.command('start', (ctx) => this.handleStart(ctx));
     this.bot.command('hello', (ctx) => this.handleHello(ctx));
-    this.bot.command('app', (ctx) => this.handleOpenApp(ctx));
 
     this.bot.start();
     this.logger.log('✅ MAX Quiz Bot запущен');
@@ -42,7 +40,8 @@ export class BotService implements OnModuleInit {
       `Здесь преподаватели могут быстро создавать тесты,\n` +
       `а студенты — проходить их прямо внутри MAX.\n\n` +
       `👉 Напиши /hello чтобы узнать подробнее.\n` +
-      `👉 Или просто открой приложение: /app`
+      `👉 Или просто открой приложение: /app`,
+      { format: 'markdown' }
     );
   }
 
@@ -54,16 +53,8 @@ export class BotService implements OnModuleInit {
       `• Быстрые результаты и статистика\n` +
       `• Сканирование QR-кодов прямо в приложении\n` +
       `• Авторизация через MAX (ничего не нужно вводить)\n\n` +
-      `✨ Нажми /app чтобы открыть мини-апп`
-    );
-  }
-
-  private async handleOpenApp(ctx: Context) {
-    const appUrl = `https://max.ru/t39_hakaton_bot?startapp`;
-
-    await ctx.reply(
-      `🚀 Открыть приложение MAX Quiz:\n${appUrl}\n\n` +
-      `Удачи в тестировании!`
+      `✨ Нажми /app чтобы открыть мини-апп`,
+      { format: 'markdown' }
     );
   }
 }
