@@ -32,7 +32,6 @@ export default function MySurveys() {
       const response = await api.get('/quizzes/my');
       setQuizzes(response.data);
     } catch (error) {
-      console.error('Ошибка загрузки квизов:', error);
       toastRef.current.error('Не удалось загрузить список квизов');
     } finally {
       setLoading(false);
@@ -87,20 +86,11 @@ export default function MySurveys() {
     toast.warning('Закрытие квиза... После закрытия новые ответы приниматься не будут.');
     
     try {
-      console.log('Закрытие квиза с ID:', quizId);
-      const response = await api.patch(`/quizzes/my/${quizId}/close`, {});
-      console.log('Ответ на закрытие квиза:', response.data);
+      await api.patch(`/quizzes/my/${quizId}/close`, {});
       toast.success('Квиз успешно закрыт');
       // Перезагружаем список квизов
       loadQuizzes();
     } catch (error: any) {
-      console.error('Ошибка закрытия квиза:', error);
-      console.error('Детали ошибки:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-      });
-      
       if (error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else if (error.response?.status === 404) {

@@ -72,8 +72,8 @@ export function shareContent(params: { text: string; link: string }): boolean {
             }
 
             webApp.shareContent({
-                text: truncatedText,
                 link: truncatedLink,
+                text: truncatedText,
             });
 
             return true;
@@ -128,7 +128,7 @@ export function shareMaxContent(params: { text: string; link: string }): boolean
     }
 
     try {
-        webApp?.shareMaxContent?.({ text: finalText, link: finalLink });
+        webApp?.shareMaxContent?.({ link: finalLink, text: finalText });
     } catch {
         // ignore
     } finally {
